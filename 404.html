@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<script>
+  var parts = location.pathname.split('/').filter(Boolean);
+  // parts[0] = repo name on GitHub Pages (e.g. 'recharge-timer'), or the time seg on root deploy
+  // Relative path = everything after the first segment (for subdir deploy) or the whole thing (root)
+  var base = parts.length > 1 ? '/' + parts[0] + '/' : '/';
+  var rel  = parts.length > 1 ? parts.slice(1).join('/') : (parts[0] || '');
+  if (rel && rel.indexOf('.') === -1) {
+    sessionStorage.setItem('recharge_timer_path', rel);
+  }
+  location.replace(base);
+</script>
+</html>
