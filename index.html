@@ -710,19 +710,31 @@
   }
   .perimeter-bar {
     position: absolute;
-    inset: -10px;
+    inset: -14px;
     pointer-events: none;
-    overflow: visible;
-    border: 20px solid var(--pixel-track);
-    border-radius: 16px;
-    box-sizing: border-box;
   }
+  .perim-track {
+    position: absolute;
+    background: var(--pixel-track);
+    border-radius: 8px;
+  }
+  .perim-track-top, .perim-track-bottom {
+    left: 0; right: 0; height: 20px;
+  }
+  .perim-track-top { top: 0; }
+  .perim-track-bottom { bottom: 0; }
+  .perim-track-left, .perim-track-right {
+    top: 0; bottom: 0; width: 20px;
+  }
+  .perim-track-left { left: 0; }
+  .perim-track-right { right: 0; }
   .perimeter-sq {
     position: absolute;
     width: 20px;
     height: 20px;
     border-radius: 4px;
     background: transparent;
+    z-index: 1;
   }
   .perimeter-sq.active {
     animation: pixel-pulse 0.99s ease-in-out infinite;
@@ -2855,39 +2867,44 @@ function initPerimeterBar() {
   const st = getComputedStyle(document.documentElement);
   const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
   const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
-  const bw = 20; // border width = track thickness
+  const w = bar.offsetWidth;
+  const h = bar.offsetHeight;
+  if (w === 0 || h === 0) return;
   const sqSize = 20;
-  // clientWidth/Height = content box (inside border)
-  const cw = bar.clientWidth;
-  const ch = bar.clientHeight;
-  if (cw === 0 || ch === 0) return;
-  // Border centerline forms a rectangle in content-box coordinates:
-  // top-center: y = -bw/2,   x from -bw/2 to cw+bw/2
-  // right-center: x = cw+bw/2, y from -bw/2 to ch+bw/2
-  // etc. Track lengths along each side:
-  const topLen = cw + bw;
-  const rightLen = ch + bw;
+  // Create 4 track bars (background)
+  ['top','right','bottom','left'].forEach(side => {
+    const t = document.createElement('div');
+    t.className = 'perim-track perim-track-' + side;
+    bar.appendChild(t);
+  });
+  // Walk the perimeter centerline (center of the 20px track)
+  // The bar is the full container, tracks are at edges
+  const topLen = w;       // top edge length
+  const rightLen = h;     // right edge length
   const perim = 2 * topLen + 2 * rightLen;
   const step = perim / N_PIXELS;
-  const half = sqSize / 2;
   const positions = [];
   for (let i = 0; i < N_PIXELS; i++) {
     const d = i * step + step / 2;
-    let cx, cy; // centerline point in content-box coords
+    let x, y;
     if (d < topLen) {
-      cx = -bw / 2 + d;
-      cy = -bw / 2;
+      // Top edge: y centered on track (0 + 10), x walks left to right
+      x = d - sqSize / 2;
+      y = 0;
     } else if (d < topLen + rightLen) {
-      cx = cw + bw / 2;
-      cy = -bw / 2 + (d - topLen);
+      // Right edge: x at right track, y walks top to bottom
+      x = w - sqSize;
+      y = (d - topLen);
     } else if (d < 2 * topLen + rightLen) {
-      cx = cw + bw / 2 - (d - topLen - rightLen);
-      cy = ch + bw / 2;
+      // Bottom edge: y at bottom track, x walks right to left
+      x = w - (d - topLen - rightLen) - sqSize / 2;
+      y = h - sqSize;
     } else {
-      cx = -bw / 2;
-      cy = ch + bw / 2 - (d - 2 * topLen - rightLen);
+      // Left edge: x at left track, y walks bottom to top
+      x = 0;
+      y = h - (d - 2 * topLen - rightLen);
     }
-    positions.push({ x: cx - half, y: cy - half });
+    positions.push({ x, y });
   }
   for (let i = 0; i < positions.length; i++) {
     const sq = document.createElement('div');
