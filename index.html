@@ -713,6 +713,9 @@
     inset: -10px;
     pointer-events: none;
     overflow: visible;
+    border: 20px solid var(--pixel-track);
+    border-radius: 16px;
+    box-sizing: border-box;
   }
   .perimeter-sq {
     position: absolute;
@@ -1766,10 +1769,6 @@
       <div class="sound-option">
         <input type="radio" name="bar-style" id="bar-style-mirror" value="mirror">
         <label for="bar-style-mirror"><span class="sound-emoji">◇</span>Mirror</label>
-      </div>
-      <div class="sound-option">
-        <input type="radio" name="bar-style" id="bar-style-circle" value="circle">
-        <label for="bar-style-circle"><span class="sound-emoji">◯</span>Circle</label>
       </div>
       <div class="sound-option">
         <input type="radio" name="bar-style" id="bar-style-perimeter" value="perimeter">
@@ -2856,41 +2855,41 @@ function initPerimeterBar() {
   const st = getComputedStyle(document.documentElement);
   const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
   const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
-  // Measure the perimeter bar container (inset: -10px from surround)
-  const w = bar.offsetWidth;
-  const h = bar.offsetHeight;
-  if (w === 0 || h === 0) return; // not visible yet
+  const bw = 20; // border width = track thickness
   const sqSize = 20;
-  // Distribute 24 squares proportional to side lengths
-  // Walk the perimeter clockwise: top-left → top-right → bottom-right → bottom-left
-  const perim = 2 * w + 2 * h;
-  const totalGap = perim - N_PIXELS * sqSize;
-  const gap = totalGap / N_PIXELS;
-  const step = sqSize + gap;
+  // offsetWidth/Height includes border, content box is inside
+  const outerW = bar.offsetWidth;
+  const outerH = bar.offsetHeight;
+  if (outerW === 0 || outerH === 0) return;
+  // Walk centerline of border: a rectangle inset by bw/2 from outer edge
+  const trackW = outerW - bw; // centerline rect width
+  const trackH = outerH - bw; // centerline rect height
+  const perim = 2 * trackW + 2 * trackH;
+  const step = perim / N_PIXELS;
   const positions = [];
-  let dist = gap / 2; // start with half-gap offset from corner
   for (let i = 0; i < N_PIXELS; i++) {
-    const center = dist + sqSize / 2;
+    const d = i * step + step / 2; // center of each segment along perimeter
     let x, y;
-    if (center <= w) {
+    if (d < trackW) {
       // Top edge
-      x = center - sqSize / 2;
-      y = 0;
-    } else if (center <= w + h) {
+      x = bw / 2 + d;
+      y = bw / 2;
+    } else if (d < trackW + trackH) {
       // Right edge
-      x = w - sqSize;
-      y = (center - w) - sqSize / 2;
-    } else if (center <= 2 * w + h) {
-      // Bottom edge (right to left)
-      x = w - (center - w - h) - sqSize / 2;
-      y = h - sqSize;
+      x = outerW - bw / 2;
+      y = bw / 2 + (d - trackW);
+    } else if (d < 2 * trackW + trackH) {
+      // Bottom edge
+      x = outerW - bw / 2 - (d - trackW - trackH);
+      y = outerH - bw / 2;
     } else {
-      // Left edge (bottom to top)
-      x = 0;
-      y = h - (center - 2 * w - h) - sqSize / 2;
+      // Left edge
+      x = bw / 2;
+      y = outerH - bw / 2 - (d - 2 * trackW - trackH);
     }
-    positions.push({ x, y });
-    dist += step;
+    // x,y is center on the border centerline; offset to place the square centered
+    // Positions are relative to content box (inside border), so shift by -bw
+    positions.push({ x: x - sqSize / 2 - bw, y: y - sqSize / 2 - bw });
   }
   for (let i = 0; i < positions.length; i++) {
     const sq = document.createElement('div');
