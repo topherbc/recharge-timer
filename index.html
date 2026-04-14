@@ -677,27 +677,27 @@
     50%       { opacity: 0.15; }
   }
 
-  /* ===================== CIRCLE BAR ===================== */
-  .timer-center {
+  /* ===================== SURROUND BAR (CIRCLE + PERIMETER) ===================== */
+  .timer-surround {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .timer-center-content {
+  .timer-surround-content {
     position: relative;
     z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: clamp(2px, 0.5vh, 8px);
+    padding: 24px 32px;
   }
   .circle-bar-svg {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: clamp(240px, 75vw, 420px);
-    height: clamp(240px, 75vw, 420px);
+    inset: -16px;
+    width: calc(100% + 32px);
+    height: calc(100% + 32px);
     pointer-events: none;
   }
   .circle-seg {
@@ -706,24 +706,15 @@
   .circle-seg.active {
     animation: pixel-pulse 0.99s ease-in-out infinite;
   }
-
-  /* ===================== PERIMETER BAR ===================== */
-  .perimeter-bar-wrapper {
-    width: 100%;
-    max-width: 560px;
-    padding: 0 4px;
-    margin-top: clamp(4px, 1.5vh, 16px);
-  }
   .perimeter-bar {
-    position: relative;
-    width: 100%;
-    height: 80px;
-    border-radius: 8px;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
   }
   .perimeter-sq {
     position: absolute;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 4px;
     background: transparent;
   }
@@ -1593,19 +1584,17 @@
 
 <!-- ==================== TIMER SCREEN ==================== -->
 <div id="screen-timer" class="screen">
-  <div class="timer-label" id="timer-label">Short Break</div>
-  <div class="timer-center" id="timer-center">
+  <div class="timer-surround" id="timer-surround">
+    <div class="perimeter-bar" id="perimeter-bar" style="display:none"></div>
     <svg class="circle-bar-svg" id="circle-bar-svg" viewBox="0 0 300 300" style="display:none"></svg>
-    <div class="timer-center-content">
+    <div class="timer-surround-content">
+      <div class="timer-label" id="timer-label">Short Break</div>
       <div class="timer-countdown" aria-live="polite" aria-atomic="true"><span id="timer-minsec"></span><span class="timer-ms" id="timer-ms"></span></div>
       <div class="timer-caption" id="timer-caption">remaining</div>
     </div>
   </div>
   <div class="pixel-bar-wrapper" id="pixel-bar-wrapper">
     <div class="pixel-bar" id="pixel-bar"></div>
-  </div>
-  <div class="perimeter-bar-wrapper" id="perimeter-bar-wrapper" style="display:none">
-    <div class="perimeter-bar" id="perimeter-bar"></div>
   </div>
   <div class="timer-actions">
     <button class="cancel-btn" onclick="cancelTimer()">Cancel</button>
@@ -1774,6 +1763,10 @@
       <div class="sound-option">
         <input type="radio" name="bar-style" id="bar-style-mirror" value="mirror">
         <label for="bar-style-mirror"><span class="sound-emoji">◇</span>Mirror</label>
+      </div>
+      <div class="sound-option">
+        <input type="radio" name="bar-style" id="bar-style-circle" value="circle">
+        <label for="bar-style-circle"><span class="sound-emoji">◯</span>Circle</label>
       </div>
       <div class="sound-option">
         <input type="radio" name="bar-style" id="bar-style-perimeter" value="perimeter">
@@ -2735,13 +2728,15 @@ function getBarStyle() {
 function initActiveBar() {
   const style = getBarStyle();
   const pixelWrap = document.getElementById('pixel-bar-wrapper');
-  const perimWrap = document.getElementById('perimeter-bar-wrapper');
+  const perimBar = document.getElementById('perimeter-bar');
   const circleSvg = document.getElementById('circle-bar-svg');
   // Reset pixel-bar classes
   document.getElementById('pixel-bar').classList.remove('cascade-grid');
-  // Show/hide containers
+  // Show/hide containers: bar/mirror/cascade use pixel-bar-wrapper below timer
+  // circle and perimeter use overlays inside timer-surround
   pixelWrap.style.display = (style === 'bar' || style === 'mirror' || style === 'cascade') ? '' : 'none';
-  perimWrap.style.display = style === 'perimeter' ? '' : 'none';
+  perimBar.style.display = style === 'perimeter' ? '' : 'none';
+  perimBar.innerHTML = '';
   circleSvg.style.display = style === 'circle' ? '' : 'none';
   // Init the right bar
   if (style === 'circle') initCircleBar();
@@ -2791,7 +2786,14 @@ function initCircleBar() {
   const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
   const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
   const trackColor = st.getPropertyValue('--pixel-track').trim() || '#333';
-  const cx = 150, cy = 150, r = 130;
+  // Size the SVG viewBox to match the surround container
+  const surround = document.getElementById('timer-surround');
+  const vw = surround.offsetWidth + 32;
+  const vh = surround.offsetHeight + 32;
+  svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
+  const cx = vw / 2, cy = vh / 2;
+  const r = Math.min(vw, vh) / 2 - 10;
+  const strokeW = Math.max(10, r * 0.1);
   const gapDeg = 3;
   const segAngle = (360 / N_PIXELS) - gapDeg;
   // Draw track ring (background)
@@ -2801,7 +2803,7 @@ function initCircleBar() {
   trackRing.setAttribute('r', r);
   trackRing.setAttribute('fill', 'none');
   trackRing.setAttribute('stroke', trackColor);
-  trackRing.setAttribute('stroke-width', '16');
+  trackRing.setAttribute('stroke-width', strokeW);
   trackRing.setAttribute('opacity', '0.3');
   svg.appendChild(trackRing);
   for (let i = 0; i < N_PIXELS; i++) {
@@ -2811,7 +2813,7 @@ function initCircleBar() {
     path.setAttribute('d', describeArc(cx, cy, r, startAngle, endAngle));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', trackColor);
-    path.setAttribute('stroke-width', '14');
+    path.setAttribute('stroke-width', strokeW * 0.85);
     path.setAttribute('stroke-linecap', 'round');
     path.dataset.color = lerpColor(c1, c2, i / (N_PIXELS - 1));
     path.dataset.index = i;
@@ -2861,35 +2863,39 @@ function initPerimeterBar() {
   const st = getComputedStyle(document.documentElement);
   const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
   const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
-  const trackColor = st.getPropertyValue('--pixel-track').trim() || '#333';
-  // Measure container width
-  const wrapW = bar.parentElement.clientWidth || 540;
-  const sqSize = 16, gap = 4;
-  // Layout: 8 top, 4 right, 8 bottom, 4 left = 24
-  const topCount = 8, sideCount = 4;
-  const totalW = topCount * sqSize + (topCount - 1) * gap;
-  const totalH = sideCount * sqSize + (sideCount + 1) * gap;
-  const offsetX = (wrapW - totalW) / 2;
-  bar.style.height = totalH + 'px';
+  // Measure the surround container
+  const surround = document.getElementById('timer-surround');
+  const w = surround.offsetWidth;
+  const h = surround.offsetHeight;
+  const sqSize = 14, gap = 4, step = sqSize + gap;
+  // Distribute 24 squares around perimeter: proportional to side lengths
+  const perim = 2 * (w + h);
+  const topN = Math.round((w / perim) * N_PIXELS);
+  const rightN = Math.round((h / perim) * N_PIXELS);
+  const bottomN = topN;
+  const leftN = N_PIXELS - topN - rightN - bottomN;
   const positions = [];
-  // Top row (left to right)
-  for (let i = 0; i < topCount; i++) {
-    positions.push({ x: offsetX + i * (sqSize + gap), y: 0 });
+  // Top edge (left to right), centered
+  for (let i = 0; i < topN; i++) {
+    const spacing = (w - sqSize) / Math.max(topN - 1, 1);
+    positions.push({ x: i * spacing, y: -sqSize / 2 });
   }
-  // Right column (top to bottom)
-  for (let i = 0; i < sideCount; i++) {
-    positions.push({ x: offsetX + (topCount - 1) * (sqSize + gap), y: (i + 1) * (sqSize + gap) });
+  // Right edge (top to bottom)
+  for (let i = 0; i < rightN; i++) {
+    const spacing = (h - sqSize) / Math.max(rightN - 1, 1);
+    positions.push({ x: w - sqSize / 2, y: i * spacing });
   }
-  // Bottom row (right to left)
-  for (let i = topCount - 1; i >= 0; i--) {
-    positions.push({ x: offsetX + i * (sqSize + gap), y: (sideCount + 1) * (sqSize + gap) });
+  // Bottom edge (right to left)
+  for (let i = 0; i < bottomN; i++) {
+    const spacing = (w - sqSize) / Math.max(bottomN - 1, 1);
+    positions.push({ x: w - sqSize - i * spacing, y: h - sqSize / 2 });
   }
-  // Left column (bottom to top)
-  for (let i = sideCount - 1; i >= 0; i--) {
-    positions.push({ x: offsetX, y: (i + 1) * (sqSize + gap) });
+  // Left edge (bottom to top)
+  for (let i = 0; i < leftN; i++) {
+    const spacing = (h - sqSize) / Math.max(leftN - 1, 1);
+    positions.push({ x: -sqSize / 2, y: h - sqSize - i * spacing });
   }
-  // Only use first 24
-  for (let i = 0; i < N_PIXELS; i++) {
+  for (let i = 0; i < positions.length && i < N_PIXELS; i++) {
     const sq = document.createElement('div');
     sq.className = 'perimeter-sq';
     sq.style.left = positions[i].x + 'px';
