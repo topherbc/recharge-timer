@@ -683,6 +683,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: visible;
   }
   .timer-surround-content {
     position: relative;
@@ -691,14 +692,15 @@
     flex-direction: column;
     align-items: center;
     gap: clamp(2px, 0.5vh, 8px);
-    padding: 24px 32px;
+    padding: 30px 40px;
   }
   .circle-bar-svg {
     position: absolute;
-    inset: -16px;
-    width: calc(100% + 32px);
-    height: calc(100% + 32px);
+    inset: -24px;
+    width: calc(100% + 48px);
+    height: calc(100% + 48px);
     pointer-events: none;
+    overflow: visible;
   }
   .circle-seg {
     transition: stroke 0.15s;
@@ -708,8 +710,9 @@
   }
   .perimeter-bar {
     position: absolute;
-    inset: 0;
+    inset: -10px;
     pointer-events: none;
+    overflow: visible;
   }
   .perimeter-sq {
     position: absolute;
@@ -2786,26 +2789,16 @@ function initCircleBar() {
   const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
   const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
   const trackColor = st.getPropertyValue('--pixel-track').trim() || '#333';
-  // Size the SVG viewBox to match the surround container
+  // Size the SVG viewBox to match the surround container + padding
   const surround = document.getElementById('timer-surround');
-  const vw = surround.offsetWidth + 32;
-  const vh = surround.offsetHeight + 32;
+  const vw = surround.offsetWidth + 48;
+  const vh = surround.offsetHeight + 48;
   svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
   const cx = vw / 2, cy = vh / 2;
-  const r = Math.min(vw, vh) / 2 - 10;
-  const strokeW = Math.max(10, r * 0.1);
-  const gapDeg = 3;
+  const r = Math.min(vw, vh) / 2 - 8;
+  const segW = 14; // matches pixel-sq height
+  const gapDeg = 6; // wide gaps between segments for discrete square look
   const segAngle = (360 / N_PIXELS) - gapDeg;
-  // Draw track ring (background)
-  const trackRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  trackRing.setAttribute('cx', cx);
-  trackRing.setAttribute('cy', cy);
-  trackRing.setAttribute('r', r);
-  trackRing.setAttribute('fill', 'none');
-  trackRing.setAttribute('stroke', trackColor);
-  trackRing.setAttribute('stroke-width', strokeW);
-  trackRing.setAttribute('opacity', '0.3');
-  svg.appendChild(trackRing);
   for (let i = 0; i < N_PIXELS; i++) {
     const startAngle = i * (360 / N_PIXELS);
     const endAngle = startAngle + segAngle;
@@ -2813,8 +2806,8 @@ function initCircleBar() {
     path.setAttribute('d', describeArc(cx, cy, r, startAngle, endAngle));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', trackColor);
-    path.setAttribute('stroke-width', strokeW * 0.85);
-    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-width', segW);
+    path.setAttribute('stroke-linecap', 'butt');
     path.dataset.color = lerpColor(c1, c2, i / (N_PIXELS - 1));
     path.dataset.index = i;
     path.classList.add('circle-seg');
@@ -2863,39 +2856,43 @@ function initPerimeterBar() {
   const st = getComputedStyle(document.documentElement);
   const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
   const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
-  // Measure the surround container
-  const surround = document.getElementById('timer-surround');
-  const w = surround.offsetWidth;
-  const h = surround.offsetHeight;
-  const sqSize = 14, gap = 4, step = sqSize + gap;
-  // Distribute 24 squares around perimeter: proportional to side lengths
-  const perim = 2 * (w + h);
-  const topN = Math.round((w / perim) * N_PIXELS);
-  const rightN = Math.round((h / perim) * N_PIXELS);
-  const bottomN = topN;
-  const leftN = N_PIXELS - topN - rightN - bottomN;
+  // Measure the perimeter bar container (inset: -10px from surround)
+  const w = bar.offsetWidth;
+  const h = bar.offsetHeight;
+  if (w === 0 || h === 0) return; // not visible yet
+  const sqSize = 14;
+  // Distribute 24 squares proportional to side lengths
+  // Walk the perimeter clockwise: top-left → top-right → bottom-right → bottom-left
+  const perim = 2 * w + 2 * h;
+  const totalGap = perim - N_PIXELS * sqSize;
+  const gap = totalGap / N_PIXELS;
+  const step = sqSize + gap;
   const positions = [];
-  // Top edge (left to right), centered
-  for (let i = 0; i < topN; i++) {
-    const spacing = (w - sqSize) / Math.max(topN - 1, 1);
-    positions.push({ x: i * spacing, y: -sqSize / 2 });
+  let dist = gap / 2; // start with half-gap offset from corner
+  for (let i = 0; i < N_PIXELS; i++) {
+    const center = dist + sqSize / 2;
+    let x, y;
+    if (center <= w) {
+      // Top edge
+      x = center - sqSize / 2;
+      y = 0;
+    } else if (center <= w + h) {
+      // Right edge
+      x = w - sqSize;
+      y = (center - w) - sqSize / 2;
+    } else if (center <= 2 * w + h) {
+      // Bottom edge (right to left)
+      x = w - (center - w - h) - sqSize / 2;
+      y = h - sqSize;
+    } else {
+      // Left edge (bottom to top)
+      x = 0;
+      y = h - (center - 2 * w - h) - sqSize / 2;
+    }
+    positions.push({ x, y });
+    dist += step;
   }
-  // Right edge (top to bottom)
-  for (let i = 0; i < rightN; i++) {
-    const spacing = (h - sqSize) / Math.max(rightN - 1, 1);
-    positions.push({ x: w - sqSize / 2, y: i * spacing });
-  }
-  // Bottom edge (right to left)
-  for (let i = 0; i < bottomN; i++) {
-    const spacing = (w - sqSize) / Math.max(bottomN - 1, 1);
-    positions.push({ x: w - sqSize - i * spacing, y: h - sqSize / 2 });
-  }
-  // Left edge (bottom to top)
-  for (let i = 0; i < leftN; i++) {
-    const spacing = (h - sqSize) / Math.max(leftN - 1, 1);
-    positions.push({ x: -sqSize / 2, y: h - sqSize - i * spacing });
-  }
-  for (let i = 0; i < positions.length && i < N_PIXELS; i++) {
+  for (let i = 0; i < positions.length; i++) {
     const sq = document.createElement('div');
     sq.className = 'perimeter-sq';
     sq.style.left = positions[i].x + 'px';
