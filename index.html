@@ -2857,39 +2857,37 @@ function initPerimeterBar() {
   const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
   const bw = 20; // border width = track thickness
   const sqSize = 20;
-  // offsetWidth/Height includes border, content box is inside
-  const outerW = bar.offsetWidth;
-  const outerH = bar.offsetHeight;
-  if (outerW === 0 || outerH === 0) return;
-  // Walk centerline of border: a rectangle inset by bw/2 from outer edge
-  const trackW = outerW - bw; // centerline rect width
-  const trackH = outerH - bw; // centerline rect height
-  const perim = 2 * trackW + 2 * trackH;
+  // clientWidth/Height = content box (inside border)
+  const cw = bar.clientWidth;
+  const ch = bar.clientHeight;
+  if (cw === 0 || ch === 0) return;
+  // Border centerline forms a rectangle in content-box coordinates:
+  // top-center: y = -bw/2,   x from -bw/2 to cw+bw/2
+  // right-center: x = cw+bw/2, y from -bw/2 to ch+bw/2
+  // etc. Track lengths along each side:
+  const topLen = cw + bw;
+  const rightLen = ch + bw;
+  const perim = 2 * topLen + 2 * rightLen;
   const step = perim / N_PIXELS;
+  const half = sqSize / 2;
   const positions = [];
   for (let i = 0; i < N_PIXELS; i++) {
-    const d = i * step + step / 2; // center of each segment along perimeter
-    let x, y;
-    if (d < trackW) {
-      // Top edge
-      x = bw / 2 + d;
-      y = bw / 2;
-    } else if (d < trackW + trackH) {
-      // Right edge
-      x = outerW - bw / 2;
-      y = bw / 2 + (d - trackW);
-    } else if (d < 2 * trackW + trackH) {
-      // Bottom edge
-      x = outerW - bw / 2 - (d - trackW - trackH);
-      y = outerH - bw / 2;
+    const d = i * step + step / 2;
+    let cx, cy; // centerline point in content-box coords
+    if (d < topLen) {
+      cx = -bw / 2 + d;
+      cy = -bw / 2;
+    } else if (d < topLen + rightLen) {
+      cx = cw + bw / 2;
+      cy = -bw / 2 + (d - topLen);
+    } else if (d < 2 * topLen + rightLen) {
+      cx = cw + bw / 2 - (d - topLen - rightLen);
+      cy = ch + bw / 2;
     } else {
-      // Left edge
-      x = bw / 2;
-      y = outerH - bw / 2 - (d - 2 * trackW - trackH);
+      cx = -bw / 2;
+      cy = ch + bw / 2 - (d - 2 * topLen - rightLen);
     }
-    // x,y is center on the border centerline; offset to place the square centered
-    // Positions are relative to content box (inside border), so shift by -bw
-    positions.push({ x: x - sqSize / 2 - bw, y: y - sqSize / 2 - bw });
+    positions.push({ x: cx - half, y: cy - half });
   }
   for (let i = 0; i < positions.length; i++) {
     const sq = document.createElement('div');
