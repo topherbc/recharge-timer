@@ -151,7 +151,7 @@
     --modal-text: #D0F0FF;
     --modal-text-muted: rgba(208,240,255,0.7);
     --card-bg: #182838;
-    --bg-warn: #CC7820;
+    --bg-warn: #1A4A6A;
   }
 
   [data-theme="rose"] {
@@ -175,7 +175,7 @@
     --modal-text: #FFE8F0;
     --modal-text-muted: rgba(255,232,240,0.75);
     --card-bg: #FFFFFF;
-    --bg-warn: #E86830;
+    --bg-warn: #FFB0C8;
   }
 
   [data-theme="slate"] {
@@ -199,7 +199,7 @@
     --modal-text: #E8EAF0;
     --modal-text-muted: rgba(232,234,240,0.75);
     --card-bg: #FFFFFF;
-    --bg-warn: #D49020;
+    --bg-warn: #C8CED8;
   }
 
   [data-theme="contrast"] {
@@ -223,7 +223,7 @@
     --modal-text: #FFFFFF;
     --modal-text-muted: rgba(255,255,255,0.8);
     --card-bg: #1A1A1A;
-    --bg-warn: #FF6600;
+    --bg-warn: #2A2A00;
   }
 
   [data-theme="lavender"] {
@@ -247,7 +247,7 @@
     --modal-text: #F0E8FF;
     --modal-text-muted: rgba(240,232,255,0.75);
     --card-bg: #FFFFFF;
-    --bg-warn: #D88030;
+    --bg-warn: #D5C0FF;
   }
 
   [data-theme="coffee"] {
@@ -703,6 +703,48 @@
     transition: stroke 0.15s;
   }
   .circle-seg.active {
+    animation: pixel-pulse 0.99s ease-in-out infinite;
+  }
+
+  /* ===================== PERIMETER BAR ===================== */
+  .perimeter-bar-wrapper {
+    width: 100%;
+    max-width: 560px;
+    padding: 0 4px;
+    margin-top: clamp(4px, 1.5vh, 16px);
+  }
+  .perimeter-bar {
+    position: relative;
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+  }
+  .perimeter-sq {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    background: transparent;
+  }
+  .perimeter-sq.active {
+    animation: pixel-pulse 0.99s ease-in-out infinite;
+  }
+
+  /* ===================== CASCADE BAR ===================== */
+  .cascade-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    padding: 4px;
+    background: var(--pixel-track);
+    border-radius: 8px;
+  }
+  .cascade-sq {
+    height: 18px;
+    border-radius: 4px;
+    background: transparent;
+  }
+  .cascade-sq.active {
     animation: pixel-pulse 0.99s ease-in-out infinite;
   }
 
@@ -1561,6 +1603,9 @@
   <div class="pixel-bar-wrapper" id="pixel-bar-wrapper">
     <div class="pixel-bar" id="pixel-bar"></div>
   </div>
+  <div class="perimeter-bar-wrapper" id="perimeter-bar-wrapper" style="display:none">
+    <div class="perimeter-bar" id="perimeter-bar"></div>
+  </div>
   <div class="timer-actions">
     <button class="cancel-btn" onclick="cancelTimer()">Cancel</button>
     <button class="pause-btn" id="pause-btn" onclick="togglePause()" title="Pause">
@@ -1729,7 +1774,14 @@
         <input type="radio" name="bar-style" id="bar-style-mirror" value="mirror">
         <label for="bar-style-mirror"><span class="sound-emoji">◇</span>Mirror</label>
       </div>
-      <!-- circle style coming soon -->
+      <div class="sound-option">
+        <input type="radio" name="bar-style" id="bar-style-perimeter" value="perimeter">
+        <label for="bar-style-perimeter"><span class="sound-emoji">⬡</span>Perimeter</label>
+      </div>
+      <div class="sound-option">
+        <input type="radio" name="bar-style" id="bar-style-cascade" value="cascade">
+        <label for="bar-style-cascade"><span class="sound-emoji">▦</span>Cascade</label>
+      </div>
     </div>
 
     <div class="settings-section-title">Theme</div>
@@ -2375,6 +2427,17 @@ for (let i = 0; i < N_PIXELS / 2; i++) {
   MIRROR_ORDER.push(N_PIXELS / 2 - 1 - i);
   MIRROR_ORDER.push(N_PIXELS / 2 + i);
 }
+// Cascade: 6 cols x 4 rows, diagonal waves top-left to bottom-right
+const CASCADE_ORDER = [];
+(function() {
+  const cols = 6, rows = 4;
+  for (let wave = 0; wave < cols + rows - 1; wave++) {
+    for (let r = 0; r < rows; r++) {
+      const c = wave - r;
+      if (c >= 0 && c < cols) CASCADE_ORDER.push(r * cols + c);
+    }
+  }
+})();
 let lastFilledCount = -1;
 
 // =======================================================================
@@ -2470,7 +2533,15 @@ function launchTimer() {
   const mins = parseInt(document.getElementById('start-panel-input').value) || 0;
   const secs = parseInt(document.getElementById('start-panel-input-sec').value) || 0;
   const total = mins * 60 + secs;
-  if (total > 0) sessionDurations[selectedType] = total / 60;
+  if (total > 0) {
+    sessionDurations[selectedType] = total / 60;
+    const cfg = JSON.parse(localStorage.getItem('recharge_breaks') || '{}');
+    if (!cfg[selectedType]) cfg[selectedType] = {};
+    cfg[selectedType].minutes = total / 60;
+    cfg[selectedType].label = LABELS[selectedType];
+    localStorage.setItem('recharge_breaks', JSON.stringify(cfg));
+    loadBreakConfig();
+  }
   startBreak(selectedType);
 }
 
@@ -2600,11 +2671,7 @@ function startTimerWithSeconds(totalSecs, label, urlSeg) {
   timerPaused = false;
   timerPausedRemaining = 0;
   document.getElementById('pause-btn').innerHTML = ICON_PAUSE;
-  const barStyle = getBarStyle();
-  const isCircle = barStyle === 'circle';
-  document.getElementById('pixel-bar-wrapper').style.display = isCircle ? 'none' : '';
-  document.getElementById('circle-bar-svg').style.display = isCircle ? '' : 'none';
-  if (isCircle) { initCircleBar(); } else { initPixelBar(); }
+  initActiveBar();
   if (timerRaf) cancelAnimationFrame(timerRaf);
   rafTick();
   if (document.getElementById('binaural-on').checked) startBinaural(40);
@@ -2662,6 +2729,24 @@ function updateWarnBackground(fraction) {
 
 function getBarStyle() {
   return localStorage.getItem('recharge_bar_style') || 'bar';
+}
+
+function initActiveBar() {
+  const style = getBarStyle();
+  const pixelWrap = document.getElementById('pixel-bar-wrapper');
+  const perimWrap = document.getElementById('perimeter-bar-wrapper');
+  const circleSvg = document.getElementById('circle-bar-svg');
+  // Reset pixel-bar classes
+  document.getElementById('pixel-bar').classList.remove('cascade-grid');
+  // Show/hide containers
+  pixelWrap.style.display = (style === 'bar' || style === 'mirror' || style === 'cascade') ? '' : 'none';
+  perimWrap.style.display = style === 'perimeter' ? '' : 'none';
+  circleSvg.style.display = style === 'circle' ? '' : 'none';
+  // Init the right bar
+  if (style === 'circle') initCircleBar();
+  else if (style === 'perimeter') initPerimeterBar();
+  else if (style === 'cascade') initCascadeBar();
+  else initPixelBar();
 }
 
 function initPixelBar() {
@@ -2767,9 +2852,140 @@ function freezeCircleBar() {
   }
 }
 
+// ===================== PERIMETER BAR =====================
+function initPerimeterBar() {
+  const bar = document.getElementById('perimeter-bar');
+  bar.innerHTML = '';
+  lastFilledCount = -1;
+  const st = getComputedStyle(document.documentElement);
+  const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
+  const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
+  const trackColor = st.getPropertyValue('--pixel-track').trim() || '#333';
+  // Measure container width
+  const wrapW = bar.parentElement.clientWidth || 540;
+  const sqSize = 16, gap = 4;
+  // Layout: 8 top, 4 right, 8 bottom, 4 left = 24
+  const topCount = 8, sideCount = 4;
+  const totalW = topCount * sqSize + (topCount - 1) * gap;
+  const totalH = sideCount * sqSize + (sideCount + 1) * gap;
+  const offsetX = (wrapW - totalW) / 2;
+  bar.style.height = totalH + 'px';
+  const positions = [];
+  // Top row (left to right)
+  for (let i = 0; i < topCount; i++) {
+    positions.push({ x: offsetX + i * (sqSize + gap), y: 0 });
+  }
+  // Right column (top to bottom)
+  for (let i = 0; i < sideCount; i++) {
+    positions.push({ x: offsetX + (topCount - 1) * (sqSize + gap), y: (i + 1) * (sqSize + gap) });
+  }
+  // Bottom row (right to left)
+  for (let i = topCount - 1; i >= 0; i--) {
+    positions.push({ x: offsetX + i * (sqSize + gap), y: (sideCount + 1) * (sqSize + gap) });
+  }
+  // Left column (bottom to top)
+  for (let i = sideCount - 1; i >= 0; i--) {
+    positions.push({ x: offsetX, y: (i + 1) * (sqSize + gap) });
+  }
+  // Only use first 24
+  for (let i = 0; i < N_PIXELS; i++) {
+    const sq = document.createElement('div');
+    sq.className = 'perimeter-sq';
+    sq.style.left = positions[i].x + 'px';
+    sq.style.top = positions[i].y + 'px';
+    sq.dataset.color = lerpColor(c1, c2, i / (N_PIXELS - 1));
+    bar.appendChild(sq);
+  }
+}
+
+function updatePerimeterBar(fraction) {
+  const filledCount = Math.floor((1 - fraction) * N_PIXELS);
+  if (filledCount === lastFilledCount) return;
+  lastFilledCount = filledCount;
+  const squares = document.getElementById('perimeter-bar').children;
+  if (squares.length < N_PIXELS) return;
+  for (let i = 0; i < N_PIXELS; i++) {
+    const solid = i < filledCount;
+    const active = i === filledCount && filledCount < N_PIXELS;
+    squares[i].style.background = (solid || active) ? squares[i].dataset.color : '';
+    squares[i].classList.toggle('active', active);
+  }
+}
+
+function freezePerimeterBar() {
+  const fraction = timerTotalMs > 0 ? timerPausedRemaining / timerTotalMs : 0;
+  const progress = (1 - fraction) * N_PIXELS;
+  const filledCount = Math.floor(progress);
+  const squareProgress = progress - filledCount;
+  const squares = document.getElementById('perimeter-bar').children;
+  if (squares.length < N_PIXELS) return;
+  for (let i = 0; i < N_PIXELS; i++) {
+    squares[i].classList.remove('active');
+    if (i < filledCount || (i === filledCount && squareProgress >= 0.75)) {
+      squares[i].style.background = squares[i].dataset.color;
+    } else {
+      squares[i].style.background = '';
+    }
+  }
+}
+
+// ===================== CASCADE BAR =====================
+function initCascadeBar() {
+  const bar = document.getElementById('pixel-bar');
+  bar.innerHTML = '';
+  bar.classList.add('cascade-grid');
+  lastFilledCount = -1;
+  const st = getComputedStyle(document.documentElement);
+  const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
+  const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
+  // Create 24 divs in grid order (row-major), but assign colors by cascade fill order
+  const colorByGridIdx = new Array(N_PIXELS);
+  for (let fillPos = 0; fillPos < N_PIXELS; fillPos++) {
+    colorByGridIdx[CASCADE_ORDER[fillPos]] = lerpColor(c1, c2, fillPos / (N_PIXELS - 1));
+  }
+  for (let i = 0; i < N_PIXELS; i++) {
+    const sq = document.createElement('div');
+    sq.className = 'cascade-sq';
+    sq.dataset.color = colorByGridIdx[i];
+    bar.appendChild(sq);
+  }
+}
+
+function updateCascadeBar(fraction) {
+  const filledCount = Math.floor((1 - fraction) * N_PIXELS);
+  if (filledCount === lastFilledCount) return;
+  lastFilledCount = filledCount;
+  const squares = document.getElementById('pixel-bar').children;
+  if (squares.length < N_PIXELS) return;
+  const litSet = new Set(CASCADE_ORDER.slice(0, filledCount));
+  const activeIdx = filledCount < N_PIXELS ? CASCADE_ORDER[filledCount] : -1;
+  for (let i = 0; i < N_PIXELS; i++) {
+    const solid = litSet.has(i);
+    const active = i === activeIdx;
+    squares[i].style.background = (solid || active) ? squares[i].dataset.color : '';
+    squares[i].classList.toggle('active', active);
+  }
+}
+
+function freezeCascadeBar() {
+  const fraction = timerTotalMs > 0 ? timerPausedRemaining / timerTotalMs : 0;
+  const progress = (1 - fraction) * N_PIXELS;
+  const filledCount = Math.floor(progress);
+  const squareProgress = progress - filledCount;
+  const squares = document.getElementById('pixel-bar').children;
+  if (squares.length < N_PIXELS) return;
+  const litSet = new Set(CASCADE_ORDER.slice(0, filledCount + (squareProgress >= 0.75 ? 1 : 0)));
+  for (let i = 0; i < N_PIXELS; i++) {
+    squares[i].classList.remove('active');
+    squares[i].style.background = litSet.has(i) ? squares[i].dataset.color : '';
+  }
+}
+
 function updatePixelBar(fraction) {
   const style = getBarStyle();
   if (style === 'circle') { updateCircleBar(fraction); return; }
+  if (style === 'perimeter') { updatePerimeterBar(fraction); return; }
+  if (style === 'cascade') { updateCascadeBar(fraction); return; }
   const filledCount = Math.floor((1 - fraction) * N_PIXELS);
   if (filledCount === lastFilledCount) return;
   lastFilledCount = filledCount;
@@ -2851,7 +3067,7 @@ function restartTimer() {
   timerPaused = false;
   timerPausedRemaining = 0;
   document.getElementById('screen-timer').classList.remove('expired');
-  if (getBarStyle() === 'circle') { initCircleBar(); } else { initPixelBar(); }
+  initActiveBar();
   if (wasPaused) {
     timerPaused = true;
     timerPausedRemaining = timerTotalMs;
@@ -2880,7 +3096,7 @@ function addOneMinute() {
   } else {
     timerEndTime += addMs;
   }
-  if (getBarStyle() === 'circle') { initCircleBar(); } else { initPixelBar(); }
+  initActiveBar();
   lastFilledCount = -1;
 }
 
@@ -2894,6 +3110,8 @@ function togglePause() {
 function freezePixelBar() {
   const style = getBarStyle();
   if (style === 'circle') { freezeCircleBar(); return; }
+  if (style === 'perimeter') { freezePerimeterBar(); return; }
+  if (style === 'cascade') { freezeCascadeBar(); return; }
   const fraction = timerTotalMs > 0 ? timerPausedRemaining / timerTotalMs : 0;
   const progress = (1 - fraction) * N_PIXELS;
   const filledCount = Math.floor(progress);
@@ -3214,7 +3432,7 @@ function cycleTheme() {
   applyTheme(next.id, true);
   // Rebuild pixel bar colors for current theme if timer is active
   if (document.getElementById('screen-timer').classList.contains('active')) {
-    if (getBarStyle() === 'circle') { initCircleBar(); } else { initPixelBar(); }
+    initActiveBar();
     lastFilledCount = -1;
   }
 }
@@ -3232,7 +3450,7 @@ function buildThemeGrid() {
     btn.onclick = () => {
       applyTheme(t.id, true);
       if (document.getElementById('screen-timer').classList.contains('active')) {
-        if (getBarStyle() === 'circle') { initCircleBar(); } else { initPixelBar(); }
+        initActiveBar();
         lastFilledCount = -1;
       }
     };
