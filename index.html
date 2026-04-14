@@ -716,8 +716,8 @@
   }
   .perimeter-sq {
     position: absolute;
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     border-radius: 4px;
     background: transparent;
   }
@@ -2668,12 +2668,12 @@ function startTimerWithSeconds(totalSecs, label, urlSeg) {
   timerPaused = false;
   timerPausedRemaining = 0;
   document.getElementById('pause-btn').innerHTML = ICON_PAUSE;
+  try { if (urlSeg !== undefined) history.pushState(null, '', APP_BASE + urlSeg); } catch(e) {}
+  showScreen('timer');
   initActiveBar();
   if (timerRaf) cancelAnimationFrame(timerRaf);
   rafTick();
   if (document.getElementById('binaural-on').checked) startBinaural(40);
-  try { if (urlSeg !== undefined) history.pushState(null, '', APP_BASE + urlSeg); } catch(e) {}
-  showScreen('timer');
 }
 
 function startBreak(type) {
@@ -2796,7 +2796,7 @@ function initCircleBar() {
   svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
   const cx = vw / 2, cy = vh / 2;
   const r = Math.min(vw, vh) / 2 - 8;
-  const segW = 14; // matches pixel-sq height
+  const segW = 20; // matches pixel-sq height
   const gapDeg = 6; // wide gaps between segments for discrete square look
   const segAngle = (360 / N_PIXELS) - gapDeg;
   for (let i = 0; i < N_PIXELS; i++) {
@@ -2860,7 +2860,7 @@ function initPerimeterBar() {
   const w = bar.offsetWidth;
   const h = bar.offsetHeight;
   if (w === 0 || h === 0) return; // not visible yet
-  const sqSize = 14;
+  const sqSize = 20;
   // Distribute 24 squares proportional to side lengths
   // Walk the perimeter clockwise: top-left → top-right → bottom-right → bottom-left
   const perim = 2 * w + 2 * h;
