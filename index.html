@@ -605,33 +605,36 @@
     font-size: clamp(52px, 18vw, 120px);
     font-weight: 700;
     color: var(--text);
-    letter-spacing: -3px;
     line-height: 1;
     display: flex;
     align-items: baseline;
     justify-content: center;
     gap: 0;
-    font-variant-numeric: tabular-nums;
   }
 
   #timer-minsec {
-    width: 5ch;
+    display: inline-flex;
     flex-shrink: 0;
-    display: inline-block;
-    text-align: right;
   }
 
   .timer-ms {
     font-size: clamp(22px, 7.5vw, 52px);
     font-weight: 500;
     color: var(--pixel-track);
-    letter-spacing: 0;
-    margin-left: 4px;
-    font-variant-numeric: tabular-nums;
-    width: 3.2ch;
+    display: inline-flex;
     flex-shrink: 0;
+    margin-left: 4px;
+  }
+
+  .timer-digit {
     display: inline-block;
-    text-align: left;
+    width: 0.64em;
+    text-align: center;
+  }
+  .timer-sep {
+    display: inline-block;
+    width: 0.36em;
+    text-align: center;
   }
 
   .timer-caption {
@@ -671,6 +674,36 @@
   @keyframes pixel-pulse {
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.15; }
+  }
+
+  /* ===================== CIRCLE BAR ===================== */
+  .timer-center {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .timer-center-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .circle-bar-svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: clamp(240px, 75vw, 420px);
+    height: clamp(240px, 75vw, 420px);
+    pointer-events: none;
+  }
+  .circle-seg {
+    transition: stroke 0.15s;
+  }
+  .circle-seg.active {
+    animation: pixel-pulse 0.99s ease-in-out infinite;
   }
 
   .timer-actions {
@@ -1518,9 +1551,14 @@
 <!-- ==================== TIMER SCREEN ==================== -->
 <div id="screen-timer" class="screen">
   <div class="timer-label" id="timer-label">Short Break</div>
-  <div class="timer-countdown" aria-live="polite" aria-atomic="true"><span id="timer-minsec">10:00</span><span class="timer-ms" id="timer-ms">.00</span></div>
-  <div class="timer-caption" id="timer-caption">remaining</div>
-  <div class="pixel-bar-wrapper">
+  <div class="timer-center" id="timer-center">
+    <svg class="circle-bar-svg" id="circle-bar-svg" viewBox="0 0 300 300" style="display:none"></svg>
+    <div class="timer-center-content">
+      <div class="timer-countdown" aria-live="polite" aria-atomic="true"><span id="timer-minsec"></span><span class="timer-ms" id="timer-ms"></span></div>
+      <div class="timer-caption" id="timer-caption">remaining</div>
+    </div>
+  </div>
+  <div class="pixel-bar-wrapper" id="pixel-bar-wrapper">
     <div class="pixel-bar" id="pixel-bar"></div>
   </div>
   <div class="timer-actions">
@@ -1679,6 +1717,19 @@
     <div class="settings-toggle-row">
       <label class="settings-toggle-label" for="warn-on">Wrap-up color warning</label>
       <input type="checkbox" id="warn-on" checked>
+    </div>
+
+    <div class="settings-section-title" style="margin-top:14px">Progress Bar Style</div>
+    <div class="sound-options">
+      <div class="sound-option">
+        <input type="radio" name="bar-style" id="bar-style-bar" value="bar" checked>
+        <label for="bar-style-bar"><span class="sound-emoji">▬</span>Bar</label>
+      </div>
+      <div class="sound-option">
+        <input type="radio" name="bar-style" id="bar-style-mirror" value="mirror">
+        <label for="bar-style-mirror"><span class="sound-emoji">◇</span>Mirror</label>
+      </div>
+      <!-- circle style coming soon -->
     </div>
 
     <div class="settings-section-title">Theme</div>
@@ -2319,6 +2370,11 @@ let timerPausedRemaining = 0;
 let currentBreakType = 'short';
 let currentPromptId = null;
 const N_PIXELS = 24;
+const MIRROR_ORDER = [];
+for (let i = 0; i < N_PIXELS / 2; i++) {
+  MIRROR_ORDER.push(N_PIXELS / 2 - 1 - i);
+  MIRROR_ORDER.push(N_PIXELS / 2 + i);
+}
 let lastFilledCount = -1;
 
 // =======================================================================
@@ -2544,11 +2600,15 @@ function startTimerWithSeconds(totalSecs, label, urlSeg) {
   timerPaused = false;
   timerPausedRemaining = 0;
   document.getElementById('pause-btn').innerHTML = ICON_PAUSE;
-  initPixelBar();
+  const barStyle = getBarStyle();
+  const isCircle = barStyle === 'circle';
+  document.getElementById('pixel-bar-wrapper').style.display = isCircle ? 'none' : '';
+  document.getElementById('circle-bar-svg').style.display = isCircle ? '' : 'none';
+  if (isCircle) { initCircleBar(); } else { initPixelBar(); }
   if (timerRaf) cancelAnimationFrame(timerRaf);
   rafTick();
   if (document.getElementById('binaural-on').checked) startBinaural(40);
-  if (urlSeg !== undefined) history.pushState(null, '', APP_BASE + urlSeg);
+  try { if (urlSeg !== undefined) history.pushState(null, '', APP_BASE + urlSeg); } catch(e) {}
   showScreen('timer');
 }
 
@@ -2560,6 +2620,24 @@ function startBreak(type) {
   const timeSeg = secsToUrlSeg(totalSecs);
   const urlSeg = customTitle ? `${timeSeg}/${encodeURIComponent(customTitle)}` : timeSeg;
   startTimerWithSeconds(totalSecs, label, urlSeg);
+}
+
+function renderDigits(container, text) {
+  const spans = container.children;
+  if (spans.length !== text.length) {
+    container.innerHTML = '';
+    for (let i = 0; i < text.length; i++) {
+      const span = document.createElement('span');
+      const ch = text[i];
+      span.className = (ch === ':' || ch === '.') ? 'timer-sep' : 'timer-digit';
+      span.textContent = ch;
+      container.appendChild(span);
+    }
+  } else {
+    for (let i = 0; i < text.length; i++) {
+      if (spans[i].textContent !== text[i]) spans[i].textContent = text[i];
+    }
+  }
 }
 
 function lerpColor(a, b, t) {
@@ -2582,6 +2660,10 @@ function updateWarnBackground(fraction) {
   screen.style.background = lerpColor(bgColor, warnColor, intensity);
 }
 
+function getBarStyle() {
+  return localStorage.getItem('recharge_bar_style') || 'bar';
+}
+
 function initPixelBar() {
   const bar = document.getElementById('pixel-bar');
   bar.innerHTML = '';
@@ -2589,24 +2671,128 @@ function initPixelBar() {
   const st = getComputedStyle(document.documentElement);
   const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
   const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
+  const style = getBarStyle();
   for (let i = 0; i < N_PIXELS; i++) {
     const sq = document.createElement('div');
     sq.className = 'pixel-sq';
-    sq.dataset.color = lerpColor(c1, c2, i / (N_PIXELS - 1));
+    if (style === 'mirror') {
+      const dist = Math.abs(i - (N_PIXELS - 1) / 2) / ((N_PIXELS - 1) / 2);
+      sq.dataset.color = lerpColor(c1, c2, dist);
+    } else {
+      sq.dataset.color = lerpColor(c1, c2, i / (N_PIXELS - 1));
+    }
     bar.appendChild(sq);
   }
 }
 
-function updatePixelBar(fraction) {
+function polarToCartesian(cx, cy, r, angleDeg) {
+  const rad = (angleDeg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function describeArc(cx, cy, r, startAngle, endAngle) {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y}`;
+}
+
+function initCircleBar() {
+  const svg = document.getElementById('circle-bar-svg');
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  lastFilledCount = -1;
+  const st = getComputedStyle(document.documentElement);
+  const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
+  const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
+  const trackColor = st.getPropertyValue('--pixel-track').trim() || '#333';
+  const cx = 150, cy = 150, r = 130;
+  const gapDeg = 3;
+  const segAngle = (360 / N_PIXELS) - gapDeg;
+  // Draw track ring (background)
+  const trackRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  trackRing.setAttribute('cx', cx);
+  trackRing.setAttribute('cy', cy);
+  trackRing.setAttribute('r', r);
+  trackRing.setAttribute('fill', 'none');
+  trackRing.setAttribute('stroke', trackColor);
+  trackRing.setAttribute('stroke-width', '16');
+  trackRing.setAttribute('opacity', '0.3');
+  svg.appendChild(trackRing);
+  for (let i = 0; i < N_PIXELS; i++) {
+    const startAngle = i * (360 / N_PIXELS);
+    const endAngle = startAngle + segAngle;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', describeArc(cx, cy, r, startAngle, endAngle));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', trackColor);
+    path.setAttribute('stroke-width', '14');
+    path.setAttribute('stroke-linecap', 'round');
+    path.dataset.color = lerpColor(c1, c2, i / (N_PIXELS - 1));
+    path.dataset.index = i;
+    path.classList.add('circle-seg');
+    svg.appendChild(path);
+  }
+}
+
+function updateCircleBar(fraction) {
   const filledCount = Math.floor((1 - fraction) * N_PIXELS);
   if (filledCount === lastFilledCount) return;
   lastFilledCount = filledCount;
-  const squares = document.getElementById('pixel-bar').children;
-  for (let i = 0; i < N_PIXELS; i++) {
-    const solid  = i < filledCount;
+  const segs = document.querySelectorAll('.circle-seg');
+  const st = getComputedStyle(document.documentElement);
+  const trackColor = st.getPropertyValue('--pixel-track').trim() || '#333';
+  for (let i = 0; i < segs.length; i++) {
+    const solid = i < filledCount;
     const active = i === filledCount && filledCount < N_PIXELS;
-    squares[i].style.background = (solid || active) ? squares[i].dataset.color : '';
-    squares[i].classList.toggle('active', active);
+    segs[i].setAttribute('stroke', (solid || active) ? segs[i].dataset.color : trackColor);
+    segs[i].classList.toggle('active', active);
+  }
+}
+
+function freezeCircleBar() {
+  const fraction = timerTotalMs > 0 ? timerPausedRemaining / timerTotalMs : 0;
+  const progress = (1 - fraction) * N_PIXELS;
+  const filledCount = Math.floor(progress);
+  const squareProgress = progress - filledCount;
+  const segs = document.querySelectorAll('.circle-seg');
+  const st = getComputedStyle(document.documentElement);
+  const trackColor = st.getPropertyValue('--pixel-track').trim() || '#333';
+  for (let i = 0; i < segs.length; i++) {
+    segs[i].classList.remove('active');
+    if (i < filledCount || (i === filledCount && squareProgress >= 0.75)) {
+      segs[i].setAttribute('stroke', segs[i].dataset.color);
+    } else {
+      segs[i].setAttribute('stroke', trackColor);
+    }
+  }
+}
+
+function updatePixelBar(fraction) {
+  const style = getBarStyle();
+  if (style === 'circle') { updateCircleBar(fraction); return; }
+  const filledCount = Math.floor((1 - fraction) * N_PIXELS);
+  if (filledCount === lastFilledCount) return;
+  lastFilledCount = filledCount;
+  const bar = document.getElementById('pixel-bar');
+  const squares = bar.children;
+  if (squares.length < N_PIXELS) return;
+  if (style === 'mirror') {
+    const litSet = new Set(MIRROR_ORDER.slice(0, filledCount));
+    const activeIdx1 = filledCount < N_PIXELS ? MIRROR_ORDER[filledCount] : -1;
+    const activeIdx2 = (filledCount + 1) < N_PIXELS ? MIRROR_ORDER[filledCount + 1] : -1;
+    for (let i = 0; i < N_PIXELS; i++) {
+      const solid = litSet.has(i);
+      const active = (i === activeIdx1 || i === activeIdx2) && !solid;
+      squares[i].style.background = (solid || active) ? squares[i].dataset.color : '';
+      squares[i].classList.toggle('active', active);
+    }
+  } else {
+    for (let i = 0; i < N_PIXELS; i++) {
+      const solid  = i < filledCount;
+      const active = i === filledCount && filledCount < N_PIXELS;
+      squares[i].style.background = (solid || active) ? squares[i].dataset.color : '';
+      squares[i].classList.toggle('active', active);
+    }
   }
 }
 
@@ -2618,17 +2804,16 @@ function rafTick() {
   const s = Math.floor(totalSec % 60);
   const ms = Math.floor((remaining % 1000) / 10);
   const minsec = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-  document.getElementById('timer-minsec').textContent = minsec;
-  document.getElementById('timer-ms').textContent =
-    '.' + String(ms).padStart(2,'0');
+  renderDigits(document.getElementById('timer-minsec'), minsec);
+  renderDigits(document.getElementById('timer-ms'), '.' + String(ms).padStart(2,'0'));
   const label = document.getElementById('timer-label').textContent;
   document.title = minsec + ' — ' + label;
   const fraction = timerTotalMs > 0 ? remaining / timerTotalMs : 0;
   updatePixelBar(fraction);
   updateWarnBackground(fraction);
   if (remaining <= 0) {
-    document.getElementById('timer-minsec').textContent = '00:00';
-    document.getElementById('timer-ms').textContent = '.00';
+    renderDigits(document.getElementById('timer-minsec'), '00:00');
+    renderDigits(document.getElementById('timer-ms'), '.00');
     updatePixelBar(0);
     timerExpired();
     return;
@@ -2643,7 +2828,7 @@ function timerExpired() {
   if (document.getElementById('alarm-on').checked) playAlarm();
   document.getElementById('screen-timer').classList.add('expired');
   document.getElementById('timer-caption').textContent = 'done!';
-  history.replaceState(null, '', APP_BASE);
+  try { history.replaceState(null, '', APP_BASE); } catch(e) {}
   setTimeout(() => goToReentry(), 500);
 }
 
@@ -2666,15 +2851,15 @@ function restartTimer() {
   timerPaused = false;
   timerPausedRemaining = 0;
   document.getElementById('screen-timer').classList.remove('expired');
-  initPixelBar();
+  if (getBarStyle() === 'circle') { initCircleBar(); } else { initPixelBar(); }
   if (wasPaused) {
     timerPaused = true;
     timerPausedRemaining = timerTotalMs;
     const totalSec = timerTotalMs / 1000;
     const m = Math.floor(totalSec / 60);
     const s = Math.floor(totalSec % 60);
-    document.getElementById('timer-minsec').textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-    document.getElementById('timer-ms').textContent = '.00';
+    renderDigits(document.getElementById('timer-minsec'), String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0'));
+    renderDigits(document.getElementById('timer-ms'), '.00');
     document.getElementById('pause-btn').innerHTML = ICON_PLAY;
     document.getElementById('timer-caption').textContent = 'paused';
     stopBinaural();
@@ -2695,7 +2880,7 @@ function addOneMinute() {
   } else {
     timerEndTime += addMs;
   }
-  initPixelBar();
+  if (getBarStyle() === 'circle') { initCircleBar(); } else { initPixelBar(); }
   lastFilledCount = -1;
 }
 
@@ -2707,17 +2892,28 @@ function togglePause() {
 }
 
 function freezePixelBar() {
+  const style = getBarStyle();
+  if (style === 'circle') { freezeCircleBar(); return; }
   const fraction = timerTotalMs > 0 ? timerPausedRemaining / timerTotalMs : 0;
   const progress = (1 - fraction) * N_PIXELS;
   const filledCount = Math.floor(progress);
   const squareProgress = progress - filledCount;
   const squares = document.getElementById('pixel-bar').children;
-  for (let i = 0; i < N_PIXELS; i++) {
-    squares[i].classList.remove('active');
-    if (i < filledCount || (i === filledCount && squareProgress >= 0.75)) {
-      squares[i].style.background = squares[i].dataset.color;
-    } else {
-      squares[i].style.background = '';
+  if (squares.length < N_PIXELS) return;
+  if (style === 'mirror') {
+    const litSet = new Set(MIRROR_ORDER.slice(0, filledCount + (squareProgress >= 0.75 ? 1 : 0)));
+    for (let i = 0; i < N_PIXELS; i++) {
+      squares[i].classList.remove('active');
+      squares[i].style.background = litSet.has(i) ? squares[i].dataset.color : '';
+    }
+  } else {
+    for (let i = 0; i < N_PIXELS; i++) {
+      squares[i].classList.remove('active');
+      if (i < filledCount || (i === filledCount && squareProgress >= 0.75)) {
+        squares[i].style.background = squares[i].dataset.color;
+      } else {
+        squares[i].style.background = '';
+      }
     }
   }
 }
@@ -2913,7 +3109,7 @@ function launchFromPath() {
   const title = parts[1] ? decodeURIComponent(parts[1]) : null;
   const label = title || hashLabel(secs);
   // Restore URL, preserving original encoding/format of the time segment
-  history.pushState(null, '', APP_BASE + parts.slice(0, title ? 2 : 1).join('/'));
+  try { history.pushState(null, '', APP_BASE + parts.slice(0, title ? 2 : 1).join('/')); } catch(e) {}
   startTimerWithSeconds(secs, label);
 }
 
@@ -3018,7 +3214,7 @@ function cycleTheme() {
   applyTheme(next.id, true);
   // Rebuild pixel bar colors for current theme if timer is active
   if (document.getElementById('screen-timer').classList.contains('active')) {
-    initPixelBar();
+    if (getBarStyle() === 'circle') { initCircleBar(); } else { initPixelBar(); }
     lastFilledCount = -1;
   }
 }
@@ -3036,7 +3232,7 @@ function buildThemeGrid() {
     btn.onclick = () => {
       applyTheme(t.id, true);
       if (document.getElementById('screen-timer').classList.contains('active')) {
-        initPixelBar();
+        if (getBarStyle() === 'circle') { initCircleBar(); } else { initPixelBar(); }
         lastFilledCount = -1;
       }
     };
@@ -3086,6 +3282,9 @@ function openEditModal() {
   document.getElementById('volume-slider').value = vol;
   document.getElementById('volume-value').textContent = vol + '%';
   document.getElementById('warn-on').checked = localStorage.getItem('recharge_warnup') !== '0';
+  const barStyle = localStorage.getItem('recharge_bar_style') || 'bar';
+  const barRadio = document.getElementById('bar-style-' + barStyle);
+  if (barRadio) barRadio.checked = true;
   const binVol = localStorage.getItem('recharge_binaural_vol') || '50';
   document.getElementById('binaural-volume-slider').value = binVol;
   document.getElementById('binaural-volume-value').textContent = binVol + '%';
@@ -3106,6 +3305,8 @@ function saveAllSettings() {
   localStorage.setItem('recharge_volume', document.getElementById('volume-slider').value);
   localStorage.setItem('recharge_binaural_vol', document.getElementById('binaural-volume-slider').value);
   localStorage.setItem('recharge_warnup', document.getElementById('warn-on').checked ? '1' : '0');
+  const barChecked = document.querySelector('input[name="bar-style"]:checked');
+  if (barChecked) localStorage.setItem('recharge_bar_style', barChecked.value);
   closeModal('modal-edit');
 }
 
