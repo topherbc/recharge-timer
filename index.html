@@ -694,6 +694,10 @@
     gap: clamp(2px, 0.5vh, 8px);
     padding: 30px 40px;
   }
+  /* ===================== DISABLED BAR STYLES ===================== */
+  /* circle, perimeter, and cascade bar styles commented out —
+     only the default bar is active.
+
   .circle-bar-svg {
     position: absolute;
     inset: -24px;
@@ -739,8 +743,6 @@
   .perimeter-sq.active {
     animation: pixel-pulse 0.99s ease-in-out infinite;
   }
-
-  /* ===================== CASCADE BAR ===================== */
   .cascade-grid {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
@@ -757,6 +759,7 @@
   .cascade-sq.active {
     animation: pixel-pulse 0.99s ease-in-out infinite;
   }
+  */
 
   .timer-actions {
     display: flex;
@@ -1603,8 +1606,10 @@
 <!-- ==================== TIMER SCREEN ==================== -->
 <div id="screen-timer" class="screen">
   <div class="timer-surround" id="timer-surround">
+    <!-- perimeter and circle bar elements removed (disabled bar styles)
     <div class="perimeter-bar" id="perimeter-bar" style="display:none"></div>
     <svg class="circle-bar-svg" id="circle-bar-svg" viewBox="0 0 300 300" style="display:none"></svg>
+    -->
     <div class="timer-surround-content">
       <div class="timer-label" id="timer-label">Short Break</div>
       <div class="timer-countdown" aria-live="polite" aria-atomic="true"><span id="timer-minsec"></span><span class="timer-ms" id="timer-ms"></span></div>
@@ -1772,27 +1777,7 @@
       <input type="checkbox" id="warn-on" checked>
     </div>
 
-    <div class="settings-section-title" style="margin-top:14px">Progress Bar Style</div>
-    <div class="sound-options">
-      <div class="sound-option">
-        <input type="radio" name="bar-style" id="bar-style-bar" value="bar" checked>
-        <label for="bar-style-bar"><span class="sound-emoji">▬</span>Bar</label>
-      </div>
-      <div class="sound-option">
-        <input type="radio" name="bar-style" id="bar-style-mirror" value="mirror">
-        <label for="bar-style-mirror"><span class="sound-emoji">◇</span>Mirror</label>
-      </div>
-      <div class="sound-option">
-        <input type="radio" name="bar-style" id="bar-style-perimeter" value="perimeter">
-        <label for="bar-style-perimeter"><span class="sound-emoji">⬡</span>Perimeter</label>
-      </div>
-      <div class="sound-option">
-        <input type="radio" name="bar-style" id="bar-style-cascade" value="cascade">
-        <label for="bar-style-cascade"><span class="sound-emoji">▦</span>Cascade</label>
-      </div>
-    </div>
-
-    <div class="settings-section-title">Theme</div>
+    <div class="settings-section-title" style="margin-top:14px">Theme</div>
     <div class="theme-grid" id="theme-grid"></div>
 
     <button class="modal-save-btn" style="margin-top:20px" onclick="saveAllSettings()">Save</button>
@@ -2430,12 +2415,12 @@ let timerPausedRemaining = 0;
 let currentBreakType = 'short';
 let currentPromptId = null;
 const N_PIXELS = 24;
+/* Disabled bar style constants (mirror, cascade)
 const MIRROR_ORDER = [];
 for (let i = 0; i < N_PIXELS / 2; i++) {
   MIRROR_ORDER.push(N_PIXELS / 2 - 1 - i);
   MIRROR_ORDER.push(N_PIXELS / 2 + i);
 }
-// Cascade: 6 cols x 4 rows, diagonal waves top-left to bottom-right
 const CASCADE_ORDER = [];
 (function() {
   const cols = 6, rows = 4;
@@ -2446,6 +2431,7 @@ const CASCADE_ORDER = [];
     }
   }
 })();
+*/
 let lastFilledCount = -1;
 
 // =======================================================================
@@ -2736,27 +2722,12 @@ function updateWarnBackground(fraction) {
 }
 
 function getBarStyle() {
-  return localStorage.getItem('recharge_bar_style') || 'bar';
+  return 'bar';
 }
 
 function initActiveBar() {
-  const style = getBarStyle();
-  const pixelWrap = document.getElementById('pixel-bar-wrapper');
-  const perimBar = document.getElementById('perimeter-bar');
-  const circleSvg = document.getElementById('circle-bar-svg');
-  // Reset pixel-bar classes
-  document.getElementById('pixel-bar').classList.remove('cascade-grid');
-  // Show/hide containers: bar/mirror/cascade use pixel-bar-wrapper below timer
-  // circle and perimeter use overlays inside timer-surround
-  pixelWrap.style.display = (style === 'bar' || style === 'mirror' || style === 'cascade') ? '' : 'none';
-  perimBar.style.display = style === 'perimeter' ? '' : 'none';
-  perimBar.innerHTML = '';
-  circleSvg.style.display = style === 'circle' ? '' : 'none';
-  // Init the right bar
-  if (style === 'circle') initCircleBar();
-  else if (style === 'perimeter') initPerimeterBar();
-  else if (style === 'cascade') initCascadeBar();
-  else initPixelBar();
+  document.getElementById('pixel-bar-wrapper').style.display = '';
+  initPixelBar();
 }
 
 function initPixelBar() {
@@ -2766,20 +2737,15 @@ function initPixelBar() {
   const st = getComputedStyle(document.documentElement);
   const c1 = st.getPropertyValue('--pixel-start').trim() || '#E8900A';
   const c2 = st.getPropertyValue('--pixel-end').trim() || '#F5C842';
-  const style = getBarStyle();
   for (let i = 0; i < N_PIXELS; i++) {
     const sq = document.createElement('div');
     sq.className = 'pixel-sq';
-    if (style === 'mirror') {
-      const dist = Math.abs(i - (N_PIXELS - 1) / 2) / ((N_PIXELS - 1) / 2);
-      sq.dataset.color = lerpColor(c1, c2, dist);
-    } else {
-      sq.dataset.color = lerpColor(c1, c2, i / (N_PIXELS - 1));
-    }
+    sq.dataset.color = lerpColor(c1, c2, i / (N_PIXELS - 1));
     bar.appendChild(sq);
   }
 }
 
+/* Disabled bar style functions (circle, perimeter, cascade)
 function polarToCartesian(cx, cy, r, angleDeg) {
   const rad = (angleDeg - 90) * Math.PI / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
@@ -2998,35 +2964,20 @@ function freezeCascadeBar() {
     squares[i].style.background = litSet.has(i) ? squares[i].dataset.color : '';
   }
 }
+End of disabled bar style functions */
 
 function updatePixelBar(fraction) {
-  const style = getBarStyle();
-  if (style === 'circle') { updateCircleBar(fraction); return; }
-  if (style === 'perimeter') { updatePerimeterBar(fraction); return; }
-  if (style === 'cascade') { updateCascadeBar(fraction); return; }
   const filledCount = Math.floor((1 - fraction) * N_PIXELS);
   if (filledCount === lastFilledCount) return;
   lastFilledCount = filledCount;
   const bar = document.getElementById('pixel-bar');
   const squares = bar.children;
   if (squares.length < N_PIXELS) return;
-  if (style === 'mirror') {
-    const litSet = new Set(MIRROR_ORDER.slice(0, filledCount));
-    const activeIdx1 = filledCount < N_PIXELS ? MIRROR_ORDER[filledCount] : -1;
-    const activeIdx2 = (filledCount + 1) < N_PIXELS ? MIRROR_ORDER[filledCount + 1] : -1;
-    for (let i = 0; i < N_PIXELS; i++) {
-      const solid = litSet.has(i);
-      const active = (i === activeIdx1 || i === activeIdx2) && !solid;
-      squares[i].style.background = (solid || active) ? squares[i].dataset.color : '';
-      squares[i].classList.toggle('active', active);
-    }
-  } else {
-    for (let i = 0; i < N_PIXELS; i++) {
-      const solid  = i < filledCount;
-      const active = i === filledCount && filledCount < N_PIXELS;
-      squares[i].style.background = (solid || active) ? squares[i].dataset.color : '';
-      squares[i].classList.toggle('active', active);
-    }
+  for (let i = 0; i < N_PIXELS; i++) {
+    const solid  = i < filledCount;
+    const active = i === filledCount && filledCount < N_PIXELS;
+    squares[i].style.background = (solid || active) ? squares[i].dataset.color : '';
+    squares[i].classList.toggle('active', active);
   }
 }
 
@@ -3126,30 +3077,18 @@ function togglePause() {
 }
 
 function freezePixelBar() {
-  const style = getBarStyle();
-  if (style === 'circle') { freezeCircleBar(); return; }
-  if (style === 'perimeter') { freezePerimeterBar(); return; }
-  if (style === 'cascade') { freezeCascadeBar(); return; }
   const fraction = timerTotalMs > 0 ? timerPausedRemaining / timerTotalMs : 0;
   const progress = (1 - fraction) * N_PIXELS;
   const filledCount = Math.floor(progress);
   const squareProgress = progress - filledCount;
   const squares = document.getElementById('pixel-bar').children;
   if (squares.length < N_PIXELS) return;
-  if (style === 'mirror') {
-    const litSet = new Set(MIRROR_ORDER.slice(0, filledCount + (squareProgress >= 0.75 ? 1 : 0)));
-    for (let i = 0; i < N_PIXELS; i++) {
-      squares[i].classList.remove('active');
-      squares[i].style.background = litSet.has(i) ? squares[i].dataset.color : '';
-    }
-  } else {
-    for (let i = 0; i < N_PIXELS; i++) {
-      squares[i].classList.remove('active');
-      if (i < filledCount || (i === filledCount && squareProgress >= 0.75)) {
-        squares[i].style.background = squares[i].dataset.color;
-      } else {
-        squares[i].style.background = '';
-      }
+  for (let i = 0; i < N_PIXELS; i++) {
+    squares[i].classList.remove('active');
+    if (i < filledCount || (i === filledCount && squareProgress >= 0.75)) {
+      squares[i].style.background = squares[i].dataset.color;
+    } else {
+      squares[i].style.background = '';
     }
   }
 }
@@ -3518,9 +3457,6 @@ function openEditModal() {
   document.getElementById('volume-slider').value = vol;
   document.getElementById('volume-value').textContent = vol + '%';
   document.getElementById('warn-on').checked = localStorage.getItem('recharge_warnup') !== '0';
-  const barStyle = localStorage.getItem('recharge_bar_style') || 'bar';
-  const barRadio = document.getElementById('bar-style-' + barStyle);
-  if (barRadio) barRadio.checked = true;
   const binVol = localStorage.getItem('recharge_binaural_vol') || '50';
   document.getElementById('binaural-volume-slider').value = binVol;
   document.getElementById('binaural-volume-value').textContent = binVol + '%';
@@ -3541,8 +3477,6 @@ function saveAllSettings() {
   localStorage.setItem('recharge_volume', document.getElementById('volume-slider').value);
   localStorage.setItem('recharge_binaural_vol', document.getElementById('binaural-volume-slider').value);
   localStorage.setItem('recharge_warnup', document.getElementById('warn-on').checked ? '1' : '0');
-  const barChecked = document.querySelector('input[name="bar-style"]:checked');
-  if (barChecked) localStorage.setItem('recharge_bar_style', barChecked.value);
   closeModal('modal-edit');
 }
 
