@@ -1593,7 +1593,7 @@
           <input type="checkbox" id="alarm-on" checked>
           <span class="alarm-icon">⏱</span>
         </label>
-        <label class="binaural-check-wrap" title="Binaural beat (40 Hz · requires headphones)">
+        <label class="binaural-check-wrap" title="Binaural beat (theta/alpha · requires headphones)">
           <input type="checkbox" id="binaural-on" checked>
         </label>
         <button class="reset-btn theme-btn" id="theme-btn" onclick="cycleTheme()" title="Change theme">☀️</button>
@@ -1773,6 +1773,11 @@
       <span class="volume-value" id="binaural-volume-value">50%</span>
     </div>
 
+    <div class="settings-toggle-row">
+      <label class="settings-toggle-label" for="pinknoise-on">Mix pink noise with binaural beat</label>
+      <input type="checkbox" id="pinknoise-on">
+    </div>
+
     <div class="settings-section-title">Timer Appearance</div>
     <div class="settings-toggle-row">
       <label class="settings-toggle-label" for="warn-on">Wrap-up color warning</label>
@@ -1797,7 +1802,7 @@
     </div>
     <div class="info-section">
       <div class="info-section-title">Binaural Beats</div>
-      <div class="info-section-body">Generates a 40 Hz binaural tone during your break. Wear headphones for the full effect — a slightly different frequency plays in each ear to help your brain settle into focus.</div>
+      <div class="info-section-body">Generates a soft binaural tone tuned for cognitive reset — theta (6 Hz) for long breaks, alpha (8–10 Hz) for shorter ones. A slightly different frequency plays in each ear; wear headphones for the full effect. The tone fades in over the first 45 seconds and fades out near the end. Optional pink noise layer in Settings. <em>Not recommended for people with epilepsy or seizure disorders.</em></div>
     </div>
     <div class="info-section">
       <div class="info-section-title">Content Cards</div>
@@ -2554,35 +2559,104 @@ function resetHistory() {
 // =======================================================================
 let _binCtx = null;
 
-function startBinaural(freqHz) {
+// Duration-adaptive beat frequency:
+//   short breaks  → 10 Hz alpha (quick disengagement)
+//   medium breaks → 8 Hz alpha/theta boundary
+//   long breaks   → 6 Hz theta (deeper rest)
+function getAdaptiveBeatFreq(totalSecs) {
+  if (totalSecs < 600) return 10;
+  if (totalSecs < 1200) return 8;
+  return 6;
+}
+
+// Paul Kellet's refined pink noise algorithm — generates a loopable buffer.
+function createPinkNoiseBuffer(ctx, durationSec) {
+  const bufSize = Math.floor(ctx.sampleRate * durationSec);
+  const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+  for (let i = 0; i < bufSize; i++) {
+    const w = Math.random() * 2 - 1;
+    b0 = 0.99886 * b0 + w * 0.0555179;
+    b1 = 0.99332 * b1 + w * 0.0750759;
+    b2 = 0.96900 * b2 + w * 0.1538520;
+    b3 = 0.86650 * b3 + w * 0.3104856;
+    b4 = 0.55000 * b4 + w * 0.5329522;
+    b5 = -0.7616 * b5 - w * 0.0168980;
+    data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+    b6 = w * 0.115926;
+  }
+  return buf;
+}
+
+function startBinaural(opts) {
   stopBinaural();
   try {
+    const beatFreq      = (opts && opts.beatFreq)      || 10;
+    const remainingSecs = (opts && opts.remainingSecs) || 0;
+    const fadeInSecs    = (opts && opts.fadeInSecs != null) ? opts.fadeInSecs : 45;
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const base = 200; // carrier frequency
+    const carrier = 400;
     const binVol = parseFloat(localStorage.getItem('recharge_binaural_vol') || '50') / 100;
     const targetGain = binVol * 0.0245;
+    const now = ctx.currentTime;
+
+    // Clamp fade-in for short sessions so the tone is actually audible.
+    const fadeIn = (remainingSecs > 0 && fadeInSecs > remainingSecs / 2)
+      ? Math.max(2, remainingSecs / 3)
+      : fadeInSecs;
 
     const merger = ctx.createChannelMerger(2);
     const master = ctx.createGain();
-    master.gain.setValueAtTime(0, ctx.currentTime);
-    master.gain.linearRampToValueAtTime(targetGain, ctx.currentTime + 3);
+    master.gain.setValueAtTime(0, now);
+    master.gain.linearRampToValueAtTime(targetGain, now + fadeIn);
     merger.connect(master);
     master.connect(ctx.destination);
 
     const left = ctx.createOscillator();
     left.type = 'sine';
-    left.frequency.value = base;
+    left.frequency.value = carrier;
     left.connect(merger, 0, 0);
 
     const right = ctx.createOscillator();
     right.type = 'sine';
-    right.frequency.value = base + freqHz;
+    right.frequency.value = carrier + beatFreq;
     right.connect(merger, 0, 1);
 
     left.start();
     right.start();
     ctx._oscs = [left, right];
     ctx._master = master;
+
+    const pinkOn = localStorage.getItem('recharge_pinknoise') === '1';
+    let pinkGain = null;
+    const pinkTarget = binVol * 0.04;
+    if (pinkOn) {
+      const pinkSrc = ctx.createBufferSource();
+      pinkSrc.buffer = createPinkNoiseBuffer(ctx, 8);
+      pinkSrc.loop = true;
+      pinkGain = ctx.createGain();
+      pinkGain.gain.setValueAtTime(0, now);
+      pinkGain.gain.linearRampToValueAtTime(pinkTarget, now + fadeIn);
+      pinkSrc.connect(pinkGain);
+      pinkGain.connect(ctx.destination);
+      pinkSrc.start();
+      ctx._pinkSrc = pinkSrc;
+      ctx._pinkGain = pinkGain;
+    }
+
+    // Auto fade-out near the end of the session for a soft transition back.
+    if (remainingSecs > 0) {
+      const fadeOutDur = Math.min(20, Math.max(3, remainingSecs / 4));
+      const fadeOutStart = Math.max(fadeIn + 1, remainingSecs - fadeOutDur);
+      master.gain.setValueAtTime(targetGain, now + fadeOutStart);
+      master.gain.linearRampToValueAtTime(0, now + remainingSecs);
+      if (pinkGain) {
+        pinkGain.gain.setValueAtTime(pinkTarget, now + fadeOutStart);
+        pinkGain.gain.linearRampToValueAtTime(0, now + remainingSecs);
+      }
+    }
+
     _binCtx = ctx;
   } catch(e) {
     console.warn('Binaural beat unavailable:', e);
@@ -2648,8 +2722,22 @@ function stopBinaural() {
   const ctx = _binCtx;
   _binCtx = null;
   try {
-    ctx._master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
-    setTimeout(() => { try { ctx._oscs.forEach(o => o.stop()); ctx.close(); } catch(e) {} }, 900);
+    const now = ctx.currentTime;
+    ctx._master.gain.cancelScheduledValues(now);
+    ctx._master.gain.setValueAtTime(ctx._master.gain.value, now);
+    ctx._master.gain.linearRampToValueAtTime(0, now + 0.8);
+    if (ctx._pinkGain) {
+      ctx._pinkGain.gain.cancelScheduledValues(now);
+      ctx._pinkGain.gain.setValueAtTime(ctx._pinkGain.gain.value, now);
+      ctx._pinkGain.gain.linearRampToValueAtTime(0, now + 0.8);
+    }
+    setTimeout(() => {
+      try {
+        ctx._oscs.forEach(o => o.stop());
+        if (ctx._pinkSrc) ctx._pinkSrc.stop();
+        ctx.close();
+      } catch(e) {}
+    }, 900);
   } catch(e) {}
 }
 
@@ -2672,7 +2760,9 @@ function startTimerWithSeconds(totalSecs, label, urlSeg) {
   initActiveBar();
   if (timerRaf) cancelAnimationFrame(timerRaf);
   rafTick();
-  if (document.getElementById('binaural-on').checked) startBinaural(40);
+  if (document.getElementById('binaural-on').checked) {
+    startBinaural({ beatFreq: getAdaptiveBeatFreq(totalSecs), remainingSecs: totalSecs, fadeInSecs: 45 });
+  }
 }
 
 function startBreak(type) {
@@ -3054,7 +3144,10 @@ function restartTimer() {
     timerEndTime = performance.now() + timerTotalMs;
     document.getElementById('pause-btn').innerHTML = ICON_PAUSE;
     document.getElementById('timer-caption').textContent = 'remaining';
-    if (document.getElementById('binaural-on').checked) startBinaural(40);
+    if (document.getElementById('binaural-on').checked) {
+      const remSec = timerTotalMs / 1000;
+      startBinaural({ beatFreq: getAdaptiveBeatFreq(timerTotal), remainingSecs: remSec, fadeInSecs: 45 });
+    }
     rafTick();
   }
 }
@@ -3115,7 +3208,10 @@ function resumeTimer() {
   lastFilledCount = -1;
   document.getElementById('pause-btn').innerHTML = ICON_PAUSE;
   document.getElementById('timer-caption').textContent = 'remaining';
-  if (document.getElementById('binaural-on').checked) startBinaural(40);
+  if (document.getElementById('binaural-on').checked) {
+    const remSec = timerPausedRemaining / 1000;
+    startBinaural({ beatFreq: getAdaptiveBeatFreq(timerTotal), remainingSecs: remSec, fadeInSecs: 3 });
+  }
   rafTick();
 }
 
@@ -3462,6 +3558,7 @@ function openEditModal() {
   const binVol = localStorage.getItem('recharge_binaural_vol') || '50';
   document.getElementById('binaural-volume-slider').value = binVol;
   document.getElementById('binaural-volume-value').textContent = binVol + '%';
+  document.getElementById('pinknoise-on').checked = localStorage.getItem('recharge_pinknoise') === '1';
   document.getElementById('modal-edit').classList.add('open');
 }
 
@@ -3478,6 +3575,7 @@ function saveAllSettings() {
   if (checked) localStorage.setItem('recharge_sound', checked.value);
   localStorage.setItem('recharge_volume', document.getElementById('volume-slider').value);
   localStorage.setItem('recharge_binaural_vol', document.getElementById('binaural-volume-slider').value);
+  localStorage.setItem('recharge_pinknoise', document.getElementById('pinknoise-on').checked ? '1' : '0');
   localStorage.setItem('recharge_warnup', document.getElementById('warn-on').checked ? '1' : '0');
   closeModal('modal-edit');
 }
