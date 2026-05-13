@@ -387,10 +387,6 @@
     margin-top: 20px;
   }
   .break-buttons-extra:empty { display: none; }
-  .break-buttons-extra .break-card {
-    min-height: clamp(60px, 10vh, 80px);
-    padding: clamp(10px, 2vw, 16px) clamp(14px, 3vw, 28px);
-  }
 
   /* ---- start panel ---- */
   .start-panel {
@@ -1151,7 +1147,7 @@
   @media (min-width: 785px) {
     .break-buttons { flex-wrap: nowrap; }
     .break-card { max-width: 260px; }
-    .break-buttons-extra .break-card { max-width: 200px; }
+    .break-buttons-extra .break-card { max-width: 260px; }
     .break-extras {
       display: flex;
       flex-direction: column;
