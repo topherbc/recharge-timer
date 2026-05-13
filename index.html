@@ -1855,8 +1855,8 @@
       <div class="info-section-body">Generates a soft binaural tone during your break — choose 6 Hz (theta/deep rest), 8 Hz (alpha-theta boundary), or 10 Hz (alpha/quick reset) per break type in Settings. A slightly different frequency plays in each ear; wear headphones for the full effect. The tone fades in over the first 45 seconds and fades out near the end. Optional pink noise layer in Settings. <em>Not recommended for people with epilepsy or seizure disorders.</em></div>
     </div>
     <div class="info-section" onclick="this.classList.toggle('open')">
-      <div class="info-section-title">Content Cards</div>
-      <div class="info-section-body">When your break ends, a card shows up — a spark of inspiration, a meme, an XKCD comic, trivia, a weird fact, or a GIF. Each one is drawn from a pool and won't repeat until you've seen them all. Hit <em>Reset History</em> to shuffle the deck again.</div>
+      <div class="info-section-title">Sparks</div>
+      <div class="info-section-body">When your break ends, a spark shows up — a bit of inspiration, a meme, an XKCD comic, trivia, a weird fact, or a GIF. Each one is drawn from a pool and won't repeat until you've seen them all. Hit <em>Reset History</em> to shuffle the deck again.</div>
     </div>
     <div class="info-section" onclick="this.classList.toggle('open')">
       <div class="info-section-title">Themes</div>
@@ -2551,7 +2551,7 @@ function updatePoolCounter() {
   const total = getAllIds().length;
   const remaining = total - getUsed().length;
   document.getElementById('pool-counter').textContent =
-    remaining + ' of ' + total + ' prompts remaining';
+    remaining + ' of ' + total + ' sparks remaining';
 }
 
 // =======================================================================
@@ -3130,23 +3130,29 @@ function updatePixelBar(fraction) {
   }
 }
 
+function formatTimerDisplay(totalSec) {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = Math.floor(totalSec % 60);
+  if (h > 0) return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
 function rafTick() {
   const remaining = Math.max(0, timerEndTime - performance.now());
   const totalSec = remaining / 1000;
   timerSeconds = Math.ceil(totalSec);
-  const m = Math.floor(totalSec / 60);
-  const s = Math.floor(totalSec % 60);
   const ms = Math.floor((remaining % 1000) / 10);
-  const minsec = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
-  renderDigits(document.getElementById('timer-minsec'), minsec);
+  const display = formatTimerDisplay(totalSec);
+  renderDigits(document.getElementById('timer-minsec'), display);
   renderDigits(document.getElementById('timer-ms'), '.' + String(ms).padStart(2,'0'));
   const label = document.getElementById('timer-label').textContent;
-  document.title = minsec + ' — ' + label;
+  document.title = display + ' — ' + label;
   const fraction = timerTotalMs > 0 ? remaining / timerTotalMs : 0;
   updatePixelBar(fraction);
   updateWarnBackground(fraction);
   if (remaining <= 0) {
-    renderDigits(document.getElementById('timer-minsec'), '00:00');
+    renderDigits(document.getElementById('timer-minsec'), timerTotal >= 3600 ? '0:00:00' : '00:00');
     renderDigits(document.getElementById('timer-ms'), '.00');
     updatePixelBar(0);
     timerExpired();
@@ -3189,10 +3195,7 @@ function restartTimer() {
   if (wasPaused) {
     timerPaused = true;
     timerPausedRemaining = timerTotalMs;
-    const totalSec = timerTotalMs / 1000;
-    const m = Math.floor(totalSec / 60);
-    const s = Math.floor(totalSec % 60);
-    renderDigits(document.getElementById('timer-minsec'), String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0'));
+    renderDigits(document.getElementById('timer-minsec'), formatTimerDisplay(timerTotalMs / 1000));
     renderDigits(document.getElementById('timer-ms'), '.00');
     document.getElementById('pause-btn').innerHTML = ICON_PLAY;
     document.getElementById('timer-caption').textContent = 'paused';
@@ -3373,7 +3376,7 @@ function updateCycleBadge() {
   const total = getAllIds().length;
   const remaining = total - getUsed().length;
   document.getElementById('cycle-badge').textContent =
-    remaining + ' prompts left in cycle';
+    remaining + ' sparks left in cycle';
 }
 
 function goToSelect() {
