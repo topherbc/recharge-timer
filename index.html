@@ -1246,6 +1246,18 @@
     color: rgba(245,230,200,0.4);
     white-space: nowrap;
   }
+  .edit-hz-select {
+    width: 72px;
+    background: rgba(255,255,255,0.07);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: var(--modal-text);
+    font-size: 13px;
+    padding: 7px 4px;
+    font-family: inherit;
+    outline: none;
+  }
+  .edit-hz-select:focus { border-color: var(--accent); }
   .modal-save-btn {
     margin-top: 8px;
     width: 100%;
@@ -1722,18 +1734,36 @@
       <input class="edit-name-input" id="edit-label-short" type="text" maxlength="24" placeholder="Label">
       <input class="edit-mins-input" id="edit-mins-short" type="number" min="1" max="240">
       <span class="edit-mins-unit">min</span>
+      <select class="edit-hz-select" id="edit-hz-short">
+        <option value="off">Off</option>
+        <option value="6">6 Hz</option>
+        <option value="8">8 Hz</option>
+        <option value="10">10 Hz</option>
+      </select>
     </div>
     <div class="edit-row">
       <span class="edit-row-label">Medium</span>
       <input class="edit-name-input" id="edit-label-medium" type="text" maxlength="24" placeholder="Label">
       <input class="edit-mins-input" id="edit-mins-medium" type="number" min="1" max="240">
       <span class="edit-mins-unit">min</span>
+      <select class="edit-hz-select" id="edit-hz-medium">
+        <option value="off">Off</option>
+        <option value="6">6 Hz</option>
+        <option value="8">8 Hz</option>
+        <option value="10">10 Hz</option>
+      </select>
     </div>
     <div class="edit-row">
       <span class="edit-row-label">Lunch</span>
       <input class="edit-name-input" id="edit-label-lunch" type="text" maxlength="24" placeholder="Label">
       <input class="edit-mins-input" id="edit-mins-lunch" type="number" min="1" max="240">
       <span class="edit-mins-unit">min</span>
+      <select class="edit-hz-select" id="edit-hz-lunch">
+        <option value="off">Off</option>
+        <option value="6">6 Hz</option>
+        <option value="8">8 Hz</option>
+        <option value="10">10 Hz</option>
+      </select>
     </div>
 
     <div class="settings-section-title">Alarm Sound</div>
@@ -1802,7 +1832,7 @@
     </div>
     <div class="info-section">
       <div class="info-section-title">Binaural Beats</div>
-      <div class="info-section-body">Generates a soft binaural tone tuned for cognitive reset — theta (6 Hz) for long breaks, alpha (8–10 Hz) for shorter ones. A slightly different frequency plays in each ear; wear headphones for the full effect. The tone fades in over the first 45 seconds and fades out near the end. Optional pink noise layer in Settings. <em>Not recommended for people with epilepsy or seizure disorders.</em></div>
+      <div class="info-section-body">Generates a soft binaural tone during your break — choose 6 Hz (theta/deep rest), 8 Hz (alpha-theta boundary), or 10 Hz (alpha/quick reset) per break type in Settings. A slightly different frequency plays in each ear; wear headphones for the full effect. The tone fades in over the first 45 seconds and fades out near the end. Optional pink noise layer in Settings. <em>Not recommended for people with epilepsy or seizure disorders.</em></div>
     </div>
     <div class="info-section">
       <div class="info-section-title">Content Cards</div>
@@ -2410,8 +2440,10 @@ const GIFS = [
 // =======================================================================
 const DURATIONS = { short: 10, medium: 15, lunch: 60 };
 const DEFAULT_BREAK_LABELS = { short: 'Short', medium: 'Medium', lunch: 'Lunch' };
+const DEFAULT_HZ = { short: '10', medium: '8', lunch: 'off' };
 let LABELS = { short: 'Short', medium: 'Medium', lunch: 'Lunch' };
 let sessionDurations = { ...DURATIONS };
+let sessionHz = { ...DEFAULT_HZ };
 let timerRaf = null;
 let timerEndTime = 0;
 let timerTotalMs = 0;
@@ -2527,6 +2559,10 @@ function selectBreak(type) {
   document.getElementById('start-panel-input').value = Math.floor(mins);
   document.getElementById('start-panel-input-sec').value = Math.round((mins % 1) * 60);
   document.getElementById('start-panel').classList.add('visible');
+  // Sync binaural checkbox with this break type's Hz setting
+  const hz = sessionHz[type];
+  document.getElementById('binaural-on').checked = hz !== 'off';
+  localStorage.setItem('recharge_binaural', hz !== 'off' ? '1' : '0');
 }
 
 function launchTimer() {
@@ -2598,7 +2634,7 @@ function startBinaural(opts) {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const carrier = 400;
     const binVol = parseFloat(localStorage.getItem('recharge_binaural_vol') || '50') / 100;
-    const targetGain = binVol * 0.0245;
+    const targetGain = binVol * 0.015;
     const now = ctx.currentTime;
 
     // Clamp fade-in for short sessions so the tone is actually audible.
@@ -2630,7 +2666,7 @@ function startBinaural(opts) {
 
     const pinkOn = localStorage.getItem('recharge_pinknoise') === '1';
     let pinkGain = null;
-    const pinkTarget = binVol * 0.04;
+    const pinkTarget = binVol * 0.025;
     if (pinkOn) {
       const pinkSrc = ctx.createBufferSource();
       pinkSrc.buffer = createPinkNoiseBuffer(ctx, 8);
@@ -2760,8 +2796,9 @@ function startTimerWithSeconds(totalSecs, label, urlSeg) {
   initActiveBar();
   if (timerRaf) cancelAnimationFrame(timerRaf);
   rafTick();
-  if (document.getElementById('binaural-on').checked) {
-    startBinaural({ beatFreq: getAdaptiveBeatFreq(totalSecs), remainingSecs: totalSecs, fadeInSecs: 45 });
+  const hz = sessionHz[currentBreakType];
+  if (hz && hz !== 'off' && document.getElementById('binaural-on').checked) {
+    startBinaural({ beatFreq: parseInt(hz), remainingSecs: totalSecs, fadeInSecs: 45 });
   }
 }
 
@@ -3144,9 +3181,10 @@ function restartTimer() {
     timerEndTime = performance.now() + timerTotalMs;
     document.getElementById('pause-btn').innerHTML = ICON_PAUSE;
     document.getElementById('timer-caption').textContent = 'remaining';
-    if (document.getElementById('binaural-on').checked) {
+    const hz = sessionHz[currentBreakType];
+    if (hz && hz !== 'off' && document.getElementById('binaural-on').checked) {
       const remSec = timerTotalMs / 1000;
-      startBinaural({ beatFreq: getAdaptiveBeatFreq(timerTotal), remainingSecs: remSec, fadeInSecs: 45 });
+      startBinaural({ beatFreq: parseInt(hz), remainingSecs: remSec, fadeInSecs: 45 });
     }
     rafTick();
   }
@@ -3208,9 +3246,10 @@ function resumeTimer() {
   lastFilledCount = -1;
   document.getElementById('pause-btn').innerHTML = ICON_PAUSE;
   document.getElementById('timer-caption').textContent = 'remaining';
-  if (document.getElementById('binaural-on').checked) {
+  const hz = sessionHz[currentBreakType];
+  if (hz && hz !== 'off' && document.getElementById('binaural-on').checked) {
     const remSec = timerPausedRemaining / 1000;
-    startBinaural({ beatFreq: getAdaptiveBeatFreq(timerTotal), remainingSecs: remSec, fadeInSecs: 3 });
+    startBinaural({ beatFreq: parseInt(hz), remainingSecs: remSec, fadeInSecs: 3 });
   }
   rafTick();
 }
@@ -3535,6 +3574,7 @@ function loadBreakConfig() {
     const c = (cfg && cfg[type]) ? cfg[type] : def;
     LABELS[type] = c.label || def.label;
     sessionDurations[type] = c.minutes || def.minutes;
+    sessionHz[type] = c.hz || DEFAULT_HZ[type];
     const btn = document.getElementById('btn-' + type);
     if (btn) {
       btn.querySelector('.break-card-label').textContent = LABELS[type];
@@ -3547,6 +3587,7 @@ function openEditModal() {
   ['short', 'medium', 'lunch'].forEach(type => {
     document.getElementById('edit-label-' + type).value = LABELS[type];
     document.getElementById('edit-mins-' + type).value = sessionDurations[type];
+    document.getElementById('edit-hz-' + type).value = sessionHz[type];
   });
   const sound = localStorage.getItem('recharge_sound') || 'chime';
   const radio = document.getElementById('sound-' + sound);
@@ -3567,7 +3608,8 @@ function saveAllSettings() {
   ['short', 'medium', 'lunch'].forEach(type => {
     const label = (document.getElementById('edit-label-' + type).value || '').trim() || DEFAULT_BREAK_LABELS[type];
     const mins = Math.max(1, parseInt(document.getElementById('edit-mins-' + type).value) || DURATIONS[type]);
-    cfg[type] = { label, minutes: mins };
+    const hz = document.getElementById('edit-hz-' + type).value;
+    cfg[type] = { label, minutes: mins, hz };
   });
   localStorage.setItem('recharge_breaks', JSON.stringify(cfg));
   loadBreakConfig();
