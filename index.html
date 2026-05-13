@@ -378,6 +378,20 @@
   }
   .break-card.selected .break-card-duration { color: rgba(26,16,8,0.7); }
 
+  .break-buttons-extra {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    margin-top: 20px;
+  }
+  .break-buttons-extra:empty { display: none; }
+  .break-buttons-extra .break-card {
+    min-height: clamp(60px, 10vh, 80px);
+    padding: clamp(10px, 2vw, 16px) clamp(14px, 3vw, 28px);
+  }
+
   /* ---- start panel ---- */
   .start-panel {
     display: none;
@@ -1137,6 +1151,7 @@
   @media (min-width: 785px) {
     .break-buttons { flex-wrap: nowrap; }
     .break-card { max-width: 260px; }
+    .break-buttons-extra .break-card { max-width: 200px; }
     .break-extras {
       display: flex;
       flex-direction: column;
@@ -1258,6 +1273,49 @@
     outline: none;
   }
   .edit-hz-select:focus { border-color: var(--accent); }
+  .remove-preset-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: rgba(255,255,255,0.3);
+    font-size: 16px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    padding: 0;
+    line-height: 1;
+  }
+  .remove-preset-btn:hover {
+    color: #ff6b6b;
+    border-color: #ff6b6b;
+    background: rgba(255,107,107,0.1);
+  }
+  .add-preset-btn {
+    display: block;
+    width: 100%;
+    padding: 8px 0;
+    margin-bottom: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1.5px dashed rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: rgba(245,230,200,0.45);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    font-family: inherit;
+  }
+  .add-preset-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(255,255,255,0.07);
+  }
+  .add-preset-btn.hidden { display: none; }
   .modal-save-btn {
     margin-top: 8px;
     width: 100%;
@@ -1574,19 +1632,7 @@
   <div class="select-title">Re<span>charge</span></div>
   <div class="select-subtitle">Choose your break length</div>
 
-  <div class="break-buttons">
-    <button class="break-card" id="btn-short" onclick="selectBreak('short')">
-      <span class="break-card-label">Short</span>
-      <span class="break-card-duration">10 min</span>
-    </button>
-    <button class="break-card" id="btn-medium" onclick="selectBreak('medium')">
-      <span class="break-card-label">Medium</span>
-      <span class="break-card-duration">15 min</span>
-    </button>
-    <button class="break-card" id="btn-lunch" onclick="selectBreak('lunch')">
-      <span class="break-card-label">Lunch</span>
-      <span class="break-card-duration">60 min</span>
-    </button>
+  <div class="break-buttons" id="break-buttons">
     <div class="break-extras">
       <button class="break-extra-btn" onclick="openEditModal()" title="Customize breaks">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -1602,6 +1648,7 @@
       </button>
     </div>
   </div>
+  <div class="break-buttons-extra" id="break-buttons-extra"></div>
 
   <div class="start-panel" id="start-panel">
     <div class="start-panel-label" id="start-panel-label">Short Break</div>
@@ -1749,42 +1796,8 @@
     <div class="modal-title">Settings</div>
 
     <div class="settings-section-title">Break Timers</div>
-    <div class="edit-row">
-      <span class="edit-row-label">Short</span>
-      <input class="edit-name-input" id="edit-label-short" type="text" maxlength="24" placeholder="Label">
-      <input class="edit-mins-input" id="edit-mins-short" type="number" min="1" max="240">
-      <span class="edit-mins-unit">min</span>
-      <select class="edit-hz-select" id="edit-hz-short">
-        <option value="off">Off</option>
-        <option value="6">6 Hz</option>
-        <option value="8">8 Hz</option>
-        <option value="10">10 Hz</option>
-      </select>
-    </div>
-    <div class="edit-row">
-      <span class="edit-row-label">Medium</span>
-      <input class="edit-name-input" id="edit-label-medium" type="text" maxlength="24" placeholder="Label">
-      <input class="edit-mins-input" id="edit-mins-medium" type="number" min="1" max="240">
-      <span class="edit-mins-unit">min</span>
-      <select class="edit-hz-select" id="edit-hz-medium">
-        <option value="off">Off</option>
-        <option value="6">6 Hz</option>
-        <option value="8">8 Hz</option>
-        <option value="10">10 Hz</option>
-      </select>
-    </div>
-    <div class="edit-row">
-      <span class="edit-row-label">Lunch</span>
-      <input class="edit-name-input" id="edit-label-lunch" type="text" maxlength="24" placeholder="Label">
-      <input class="edit-mins-input" id="edit-mins-lunch" type="number" min="1" max="240">
-      <span class="edit-mins-unit">min</span>
-      <select class="edit-hz-select" id="edit-hz-lunch">
-        <option value="off">Off</option>
-        <option value="6">6 Hz</option>
-        <option value="8">8 Hz</option>
-        <option value="10">10 Hz</option>
-      </select>
-    </div>
+    <div id="edit-presets-container"></div>
+    <button class="add-preset-btn" id="add-preset-btn" onclick="addPresetRow()">+ Add Preset</button>
 
     <div class="settings-section-title">Alarm Sound</div>
     <div class="sound-options">
@@ -2458,12 +2471,13 @@ const GIFS = [
 // =======================================================================
 // STATE
 // =======================================================================
-const DURATIONS = { short: 10, medium: 15, lunch: 60 };
-const DEFAULT_BREAK_LABELS = { short: 'Short', medium: 'Medium', lunch: 'Lunch' };
-const DEFAULT_HZ = { short: '10', medium: '8', lunch: 'off' };
-let LABELS = { short: 'Short', medium: 'Medium', lunch: 'Lunch' };
-let sessionDurations = { ...DURATIONS };
-let sessionHz = { ...DEFAULT_HZ };
+const DEFAULT_PRESETS = [
+  { id: 'short',  label: 'Short',  minutes: 10, hz: '10' },
+  { id: 'medium', label: 'Medium', minutes: 15, hz: '8'  },
+  { id: 'lunch',  label: 'Lunch',  minutes: 60, hz: 'off' }
+];
+const MAX_PRESETS = 8;
+let presets = [];
 let timerRaf = null;
 let timerEndTime = 0;
 let timerTotalMs = 0;
@@ -2567,37 +2581,37 @@ function showScreen(id) {
 // =======================================================================
 let selectedType = null;
 
-function selectBreak(type) {
-  selectedType = type;
-  ['short','medium','lunch'].forEach(t => {
-    document.getElementById('btn-' + t).classList.toggle('selected', t === type);
+function getPreset(id) { return presets.find(p => String(p.id) === String(id)); }
+
+function selectBreak(id) {
+  selectedType = id;
+  document.querySelectorAll('#break-buttons .break-card, #break-buttons-extra .break-card').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.presetId === String(id));
   });
-  const mins = sessionDurations[type];
-  document.getElementById('start-panel-label').textContent = LABELS[type];
+  const p = getPreset(id);
+  if (!p) return;
+  document.getElementById('start-panel-label').textContent = p.label;
   document.getElementById('start-panel-title').value = '';
-  document.getElementById('start-panel-title').placeholder = LABELS[type];
-  document.getElementById('start-panel-input').value = Math.floor(mins);
-  document.getElementById('start-panel-input-sec').value = Math.round((mins % 1) * 60);
+  document.getElementById('start-panel-title').placeholder = p.label;
+  document.getElementById('start-panel-input').value = Math.floor(p.minutes);
+  document.getElementById('start-panel-input-sec').value = Math.round((p.minutes % 1) * 60);
   document.getElementById('start-panel').classList.add('visible');
-  // Sync binaural checkbox with this break type's Hz setting
-  const hz = sessionHz[type];
+  const hz = p.hz;
   document.getElementById('binaural-on').checked = hz !== 'off';
   localStorage.setItem('recharge_binaural', hz !== 'off' ? '1' : '0');
 }
 
 function launchTimer() {
   if (!selectedType) return;
+  const p = getPreset(selectedType);
+  if (!p) return;
   const mins = parseInt(document.getElementById('start-panel-input').value) || 0;
   const secs = parseInt(document.getElementById('start-panel-input-sec').value) || 0;
   const total = mins * 60 + secs;
   if (total > 0) {
-    sessionDurations[selectedType] = total / 60;
-    const cfg = JSON.parse(localStorage.getItem('recharge_breaks') || '{}');
-    if (!cfg[selectedType]) cfg[selectedType] = {};
-    cfg[selectedType].minutes = total / 60;
-    cfg[selectedType].label = LABELS[selectedType];
-    localStorage.setItem('recharge_breaks', JSON.stringify(cfg));
-    loadBreakConfig();
+    p.minutes = total / 60;
+    localStorage.setItem('recharge_breaks', JSON.stringify(presets));
+    renderPresetButtons();
   }
   startBreak(selectedType);
 }
@@ -2816,17 +2830,20 @@ function startTimerWithSeconds(totalSecs, label, urlSeg) {
   initActiveBar();
   if (timerRaf) cancelAnimationFrame(timerRaf);
   rafTick();
-  const hz = sessionHz[currentBreakType];
+  const _bp = getPreset(currentBreakType);
+  const hz = _bp ? _bp.hz : 'off';
   if (hz && hz !== 'off' && document.getElementById('binaural-on').checked) {
     startBinaural({ beatFreq: parseInt(hz), remainingSecs: totalSecs, fadeInSecs: 45 });
   }
 }
 
-function startBreak(type) {
-  currentBreakType = type;
-  const totalSecs = sessionDurations[type] * 60;
+function startBreak(id) {
+  currentBreakType = id;
+  const p = getPreset(id);
+  if (!p) return;
+  const totalSecs = p.minutes * 60;
   const customTitle = (document.getElementById('start-panel-title').value || '').trim();
-  const label = customTitle || LABELS[type];
+  const label = customTitle || p.label;
   const timeSeg = secsToUrlSeg(totalSecs);
   const urlSeg = customTitle ? `${timeSeg}/${encodeURIComponent(customTitle)}` : timeSeg;
   startTimerWithSeconds(totalSecs, label, urlSeg);
@@ -3204,7 +3221,7 @@ function restartTimer() {
     timerEndTime = performance.now() + timerTotalMs;
     document.getElementById('pause-btn').innerHTML = ICON_PAUSE;
     document.getElementById('timer-caption').textContent = 'remaining';
-    const hz = sessionHz[currentBreakType];
+    const hz = (getPreset(currentBreakType) || {}).hz || 'off';
     if (hz && hz !== 'off' && document.getElementById('binaural-on').checked) {
       const remSec = timerTotalMs / 1000;
       startBinaural({ beatFreq: parseInt(hz), remainingSecs: remSec, fadeInSecs: 45 });
@@ -3269,7 +3286,8 @@ function resumeTimer() {
   lastFilledCount = -1;
   document.getElementById('pause-btn').innerHTML = ICON_PAUSE;
   document.getElementById('timer-caption').textContent = 'remaining';
-  const hz = sessionHz[currentBreakType];
+  const _rp = getPreset(currentBreakType);
+  const hz = _rp ? _rp.hz : 'off';
   if (hz && hz !== 'off' && document.getElementById('binaural-on').checked) {
     const remSec = timerPausedRemaining / 1000;
     startBinaural({ beatFreq: parseInt(hz), remainingSecs: remSec, fadeInSecs: 3 });
@@ -3381,8 +3399,8 @@ function updateCycleBadge() {
 
 function goToSelect() {
   selectedType = null;
-  ['short','medium','lunch'].forEach(t => {
-    document.getElementById('btn-' + t).classList.remove('selected');
+  document.querySelectorAll('#break-buttons .break-card, #break-buttons-extra .break-card').forEach(btn => {
+    btn.classList.remove('selected');
   });
   document.getElementById('start-panel').classList.remove('visible');
   showScreen('select');
@@ -3589,29 +3607,68 @@ function updateThemeGrid() {
 // BREAK CONFIG
 // =======================================================================
 function loadBreakConfig() {
-  let cfg;
-  try { cfg = JSON.parse(localStorage.getItem('recharge_breaks') || 'null'); }
-  catch { cfg = null; }
-  ['short', 'medium', 'lunch'].forEach(type => {
-    const def = { label: DEFAULT_BREAK_LABELS[type], minutes: DURATIONS[type] };
-    const c = (cfg && cfg[type]) ? cfg[type] : def;
-    LABELS[type] = c.label || def.label;
-    sessionDurations[type] = c.minutes || def.minutes;
-    sessionHz[type] = c.hz || DEFAULT_HZ[type];
-    const btn = document.getElementById('btn-' + type);
-    if (btn) {
-      btn.querySelector('.break-card-label').textContent = LABELS[type];
-      btn.querySelector('.break-card-duration').textContent = sessionDurations[type] + ' min';
-    }
+  let raw;
+  try { raw = JSON.parse(localStorage.getItem('recharge_breaks') || 'null'); }
+  catch { raw = null; }
+  if (Array.isArray(raw) && raw.length > 0) {
+    presets = raw.slice(0, MAX_PRESETS);
+  } else if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    // Migrate old {short:{},medium:{},lunch:{}} format
+    const oldKeys = ['short', 'medium', 'lunch'];
+    const defaults = { short: { label: 'Short', minutes: 10, hz: '10' },
+                       medium: { label: 'Medium', minutes: 15, hz: '8' },
+                       lunch: { label: 'Lunch', minutes: 60, hz: 'off' } };
+    presets = oldKeys.map(k => {
+      const c = raw[k] || {};
+      return { id: k, label: c.label || defaults[k].label,
+               minutes: c.minutes || defaults[k].minutes,
+               hz: c.hz || defaults[k].hz };
+    });
+    localStorage.setItem('recharge_breaks', JSON.stringify(presets));
+  } else {
+    presets = JSON.parse(JSON.stringify(DEFAULT_PRESETS));
+  }
+  renderPresetButtons();
+}
+
+function formatPresetDuration(mins) {
+  if (mins >= 60) {
+    return mins % 60 === 0 ? (mins / 60) + ' hr' : Math.floor(mins / 60) + 'h ' + Math.round(mins % 60) + 'm';
+  }
+  return mins + ' min';
+}
+
+function makePresetCard(p) {
+  const btn = document.createElement('button');
+  btn.className = 'break-card';
+  btn.dataset.presetId = p.id;
+  btn.onclick = () => selectBreak(p.id);
+  btn.innerHTML = '<span class="break-card-label">' + p.label + '</span>'
+                + '<span class="break-card-duration">' + formatPresetDuration(p.minutes) + '</span>';
+  return btn;
+}
+
+function renderPresetButtons() {
+  const mainRow = document.getElementById('break-buttons');
+  const extraRow = document.getElementById('break-buttons-extra');
+  if (!mainRow) return;
+  mainRow.querySelectorAll('.break-card').forEach(el => el.remove());
+  if (extraRow) extraRow.innerHTML = '';
+  const extras = mainRow.querySelector('.break-extras');
+  // First 3 presets go in the main row (alongside edit/info buttons)
+  presets.slice(0, 3).forEach(p => {
+    mainRow.insertBefore(makePresetCard(p), extras);
   });
+  // Additional presets go in the second row
+  if (extraRow) {
+    presets.slice(3).forEach(p => {
+      extraRow.appendChild(makePresetCard(p));
+    });
+  }
 }
 
 function openEditModal() {
-  ['short', 'medium', 'lunch'].forEach(type => {
-    document.getElementById('edit-label-' + type).value = LABELS[type];
-    document.getElementById('edit-mins-' + type).value = sessionDurations[type];
-    document.getElementById('edit-hz-' + type).value = sessionHz[type];
-  });
+  renderEditRows();
   const sound = localStorage.getItem('recharge_sound') || 'chime';
   const radio = document.getElementById('sound-' + sound);
   if (radio) radio.checked = true;
@@ -3626,16 +3683,86 @@ function openEditModal() {
   document.getElementById('modal-edit').classList.add('open');
 }
 
-function saveAllSettings() {
-  const cfg = {};
-  ['short', 'medium', 'lunch'].forEach(type => {
-    const label = (document.getElementById('edit-label-' + type).value || '').trim() || DEFAULT_BREAK_LABELS[type];
-    const mins = Math.max(1, parseInt(document.getElementById('edit-mins-' + type).value) || DURATIONS[type]);
-    const hz = document.getElementById('edit-hz-' + type).value;
-    cfg[type] = { label, minutes: mins, hz };
+function renderEditRows() {
+  const container = document.getElementById('edit-presets-container');
+  container.innerHTML = '';
+  presets.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'edit-row';
+    row.dataset.presetId = p.id;
+    row.innerHTML =
+      '<input class="edit-name-input" type="text" maxlength="24" placeholder="Label" value="' + (p.label || '').replace(/"/g, '&quot;') + '">'
+      + '<input class="edit-mins-input" type="number" min="1" max="240" value="' + (p.minutes || 10) + '">'
+      + '<span class="edit-mins-unit">min</span>'
+      + '<select class="edit-hz-select">'
+      + '<option value="off"' + (p.hz === 'off' ? ' selected' : '') + '>Off</option>'
+      + '<option value="6"' + (p.hz === '6' ? ' selected' : '') + '>6 Hz</option>'
+      + '<option value="8"' + (p.hz === '8' ? ' selected' : '') + '>8 Hz</option>'
+      + '<option value="10"' + (p.hz === '10' ? ' selected' : '') + '>10 Hz</option>'
+      + '</select>'
+      + '<button class="remove-preset-btn" onclick="removePresetRow(\'' + p.id + '\')" title="Remove preset">&times;</button>';
+    container.appendChild(row);
   });
-  localStorage.setItem('recharge_breaks', JSON.stringify(cfg));
-  loadBreakConfig();
+  updateEditRowRemoveButtons();
+  document.getElementById('add-preset-btn').classList.toggle('hidden', presets.length >= MAX_PRESETS);
+}
+
+function addPresetRow() {
+  const container = document.getElementById('edit-presets-container');
+  const rowCount = container.querySelectorAll('.edit-row').length;
+  if (rowCount >= MAX_PRESETS) return;
+  const newId = String(Date.now());
+  const row = document.createElement('div');
+  row.className = 'edit-row';
+  row.dataset.presetId = newId;
+  row.innerHTML =
+    '<input class="edit-name-input" type="text" maxlength="24" placeholder="Label" value="">'
+    + '<input class="edit-mins-input" type="number" min="1" max="240" value="10">'
+    + '<span class="edit-mins-unit">min</span>'
+    + '<select class="edit-hz-select">'
+    + '<option value="off" selected>Off</option>'
+    + '<option value="6">6 Hz</option>'
+    + '<option value="8">8 Hz</option>'
+    + '<option value="10">10 Hz</option>'
+    + '</select>'
+    + '<button class="remove-preset-btn" onclick="removePresetRow(\'' + newId + '\')" title="Remove preset">&times;</button>';
+  container.appendChild(row);
+  row.querySelector('.edit-name-input').focus();
+  updateEditRowRemoveButtons();
+  document.getElementById('add-preset-btn').classList.toggle('hidden', container.querySelectorAll('.edit-row').length >= MAX_PRESETS);
+}
+
+function removePresetRow(id) {
+  const container = document.getElementById('edit-presets-container');
+  if (container.querySelectorAll('.edit-row').length <= 1) return;
+  const row = container.querySelector('.edit-row[data-preset-id="' + id + '"]');
+  if (row) row.remove();
+  updateEditRowRemoveButtons();
+  document.getElementById('add-preset-btn').classList.toggle('hidden', container.querySelectorAll('.edit-row').length >= MAX_PRESETS);
+}
+
+function updateEditRowRemoveButtons() {
+  const container = document.getElementById('edit-presets-container');
+  const count = container.querySelectorAll('.edit-row').length;
+  container.querySelectorAll('.remove-preset-btn').forEach(btn => {
+    btn.style.visibility = count <= 1 ? 'hidden' : '';
+  });
+}
+
+function saveAllSettings() {
+  const container = document.getElementById('edit-presets-container');
+  const rows = container.querySelectorAll('.edit-row');
+  const updated = [];
+  rows.forEach(row => {
+    const id = row.dataset.presetId;
+    const label = (row.querySelector('.edit-name-input').value || '').trim() || 'Break';
+    const mins = Math.max(1, parseInt(row.querySelector('.edit-mins-input').value) || 10);
+    const hz = row.querySelector('.edit-hz-select').value;
+    updated.push({ id, label, minutes: mins, hz });
+  });
+  presets = updated;
+  localStorage.setItem('recharge_breaks', JSON.stringify(presets));
+  renderPresetButtons();
   const checked = document.querySelector('input[name="sound-choice"]:checked');
   if (checked) localStorage.setItem('recharge_sound', checked.value);
   localStorage.setItem('recharge_volume', document.getElementById('volume-slider').value);
