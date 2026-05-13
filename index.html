@@ -3171,7 +3171,7 @@ function rafTick() {
   updatePixelBar(fraction);
   updateWarnBackground(fraction);
   if (remaining <= 0) {
-    renderDigits(document.getElementById('timer-minsec'), timerTotal >= 3600 ? '0:00:00' : '00:00');
+    renderDigits(document.getElementById('timer-minsec'), formatTimerDisplay(0));
     renderDigits(document.getElementById('timer-ms'), '.00');
     updatePixelBar(0);
     timerExpired();
