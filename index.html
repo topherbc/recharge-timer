@@ -1274,7 +1274,7 @@
   }
   .modal-save-btn:hover { background: var(--btn-hover); }
 
-  .info-section { margin-bottom: 18px; }
+  .info-section { margin-bottom: 4px; }
   .info-section:last-child { margin-bottom: 0; }
   .info-section-title {
     font-size: 12px;
@@ -1282,12 +1282,32 @@
     text-transform: uppercase;
     letter-spacing: 0.09em;
     color: var(--accent-light);
-    margin-bottom: 5px;
+    padding: 8px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+  }
+  .info-section-title::after {
+    content: '▸';
+    font-size: 11px;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+  .info-section.open .info-section-title::after {
+    transform: rotate(90deg);
   }
   .info-section-body {
     font-size: 14px;
     line-height: 1.6;
     color: var(--modal-text-muted);
+    display: none;
+    padding-bottom: 10px;
+  }
+  .info-section.open .info-section-body {
+    display: block;
   }
 
   /* ---- theme picker grid ---- */
@@ -1826,19 +1846,19 @@
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal('modal-info')">×</button>
     <div class="modal-title">How It Works</div>
-    <div class="info-section">
+    <div class="info-section" onclick="this.classList.toggle('open')">
       <div class="info-section-title">Alarm</div>
       <div class="info-section-body">The ⏱ toggle plays a chime when your timer ends. Uncheck it for a silent session.</div>
     </div>
-    <div class="info-section">
+    <div class="info-section" onclick="this.classList.toggle('open')">
       <div class="info-section-title">Binaural Beats</div>
       <div class="info-section-body">Generates a soft binaural tone during your break — choose 6 Hz (theta/deep rest), 8 Hz (alpha-theta boundary), or 10 Hz (alpha/quick reset) per break type in Settings. A slightly different frequency plays in each ear; wear headphones for the full effect. The tone fades in over the first 45 seconds and fades out near the end. Optional pink noise layer in Settings. <em>Not recommended for people with epilepsy or seizure disorders.</em></div>
     </div>
-    <div class="info-section">
+    <div class="info-section" onclick="this.classList.toggle('open')">
       <div class="info-section-title">Content Cards</div>
       <div class="info-section-body">When your break ends, a card shows up — a spark of inspiration, a meme, an XKCD comic, trivia, a weird fact, or a GIF. Each one is drawn from a pool and won't repeat until you've seen them all. Hit <em>Reset History</em> to shuffle the deck again.</div>
     </div>
-    <div class="info-section">
+    <div class="info-section" onclick="this.classList.toggle('open')">
       <div class="info-section-title">Themes</div>
       <div class="info-section-body">Pick a theme from Settings, or tap the theme button to cycle through all eleven:<br><br>
         ☀️ <strong>Sun</strong> — warm ambers and creams (default)<br>
@@ -1854,7 +1874,7 @@
         ☕ <strong>Coffee</strong> — rich mocha and cream<br><br>
         Your choice is saved and remembered between sessions.</div>
     </div>
-    <div class="info-section">
+    <div class="info-section" onclick="this.classList.toggle('open')">
       <div class="info-section-title">Keyboard Shortcuts</div>
       <div class="info-section-body">While a timer is running:<br><br>
         <code style="color:var(--accent-light)">Space</code> — pause / resume<br>
@@ -1862,7 +1882,7 @@
         <code style="color:var(--accent-light)">Esc</code> — cancel
       </div>
     </div>
-    <div class="info-section">
+    <div class="info-section" onclick="this.classList.toggle('open')">
       <div class="info-section-title">URL Timers</div>
       <div class="info-section-body">Launch a timer directly from a URL. Examples:<br><br>
         <code style="color:var(--accent-light)">…/10m</code> — 10 minute timer<br>
