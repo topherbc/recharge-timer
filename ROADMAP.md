@@ -20,17 +20,6 @@ Recharge Timer is a cognitive reset tool — not just a break timer. It combines
 
 ## Pre-Launch: Features
 
-### Expandable Timer Presets
-
-**Current state:** 3 fixed presets (short, medium, lunch) + custom timer input.
-
-**Target:** 6-8 configurable preset slots.
-- Users can add new presets, edit existing ones (label + duration), or remove them
-- Default presets remain as starting point (short/medium/lunch)
-- Cap at 6-8 to keep the selection screen clean and projection-friendly
-- All stored in localStorage (`recharge_breaks`)
-- UI: add button appears when under the cap, each preset has an edit/remove affordance
-
 ### Suggestion Form
 
 **Current state:** No way for users to submit feedback or content ideas.
@@ -237,12 +226,11 @@ Multiple beat presets tuned for different purposes:
 
 ## Implementation Order
 
-1. **Expandable presets** — configurable timer slots
-2. **Spark Library** — custom post-break content management
-3. **Suggestion form** — info modal addition
-4. **SEO + meta tags + structured data** — all the `<head>` changes
-5. **Hosting files** — CNAME, robots.txt, sitemap.xml, manifest.json, icons
-6. **Analytics** — Cloudflare beacon
-7. **Monetization** — PayPal button in info modal, FUNDING.yml
-8. **DNS + GitHub Pages config** — point domain, enable HTTPS
-9. **Post-launch** — Search Console, Bing, Product Hunt submissions
+1. **Spark Library** — custom post-break content management
+2. **Suggestion form** — info modal addition
+3. **SEO + meta tags + structured data** — all the `<head>` changes
+4. **Hosting files** — CNAME, robots.txt, sitemap.xml, manifest.json, icons
+5. **Analytics** — Cloudflare beacon
+6. **Monetization** — PayPal button in info modal, FUNDING.yml
+7. **DNS + GitHub Pages config** — point domain, enable HTTPS
+8. **Post-launch** — Search Console, Bing, Product Hunt submissions
